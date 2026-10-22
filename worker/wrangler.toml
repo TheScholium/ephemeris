@@ -1,0 +1,35 @@
+# Ephemeris server: sync, Web Push, attachments, calendar feeds.
+# `npm run setup` (repo root) fills in the two ids below and sets the secrets.
+name = "ephemeris"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+# The web app (built into ../web/dist) is served by this same Worker.
+[assets]
+directory = "../web/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*", "/cal/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ephemeris"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "FILES"
+id = "00000000000000000000000000000000"
+
+# Every minute: send due reminders and the daily summary.
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+VAPID_SUBJECT = "mailto:you@example.com"
+
+# Secrets (set by setup, never committed):
+#   API_TOKEN      bearer token for every /api call (devices and the Supernote plugin)
+#   ICS_TOKEN      secret path segment of the calendar feed
+#   VAPID_PUBLIC   Web Push public key (base64url, uncompressed P-256 point)
+#   VAPID_PRIVATE  Web Push private key (base64url "d")

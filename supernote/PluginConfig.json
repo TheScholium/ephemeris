@@ -1,0 +1,14 @@
+{
+  "name": "Ephemeris",
+  "desc": "Today's plan and deadlines from Ephemeris: check tasks off and add new ones.",
+  "iconPath": "assets/icon.png",
+  "versionName": "0.1.0",
+  "versionCode": "1",
+  "pluginID": "sidi4dtvywj9806f",
+  "pluginKey": "Ephemeris",
+  "jsMainPath": "index",
+  "author": "TheScholium",
+  "uses-permissions": [
+    "plugin.permission.INTERNET"
+  ]
+}

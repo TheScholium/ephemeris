@@ -1,0 +1,21 @@
+{
+  "name": "ephemeris",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Task manager with separate due and planned dates, for Mac, iPhone and Supernote.",
+  "workspaces": [
+    "packages/*",
+    "worker",
+    "web"
+  ],
+  "scripts": {
+    "test": "npm -w @ephemeris/core run test && npm -w @ephemeris/worker run test",
+    "dev:web": "npm -w @ephemeris/web run dev",
+    "build:web": "npm -w @ephemeris/web run build",
+    "dev": "npm run build:web && npm -w @ephemeris/worker run dev",
+    "setup": "node scripts/setup.mjs",
+    "deploy": "npm run build:web && npm -w @ephemeris/worker run deploy",
+    "plugin": "cd supernote && npm install && npm run build"
+  },
+  "license": "MIT"
+}

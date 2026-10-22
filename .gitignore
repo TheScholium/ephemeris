@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.wrangler/
+worker/.dev.vars
+worker/.secrets.json
+worker/.secrets-upload.json
+supernote/build/
+supernote/src/core/
+supernote/node_modules/
+.DS_Store

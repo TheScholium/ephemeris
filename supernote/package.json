@@ -1,0 +1,32 @@
+{
+  "name": "Ephemeris",
+  "version": "0.1.0",
+  "description": "Today's plan and deadlines from Ephemeris: check tasks off and add new ones.",
+  "private": true,
+  "scripts": {
+    "prepare-plugin": "node scripts/prepare.mjs",
+    "build": "node scripts/prepare.mjs && ./buildPlugin.sh",
+    "start": "react-native start"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.1.2",
+    "react": "19.0.0",
+    "react-native": "0.79.2",
+    "sn-plugin-lib": "^0.2.3"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "18.0.0",
+    "@react-native-community/cli-platform-android": "18.0.0",
+    "@react-native/babel-preset": "0.79.2",
+    "@react-native/metro-config": "0.79.2",
+    "@react-native/typescript-config": "0.79.2",
+    "@types/react": "^19.0.0",
+    "typescript": "5.0.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

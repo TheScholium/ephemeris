@@ -1,0 +1,19 @@
+{
+  "name": "Ephemeris",
+  "short_name": "Ephemeris",
+  "description": "Tasks with a planned day and a deadline.",
+  "start_url": "/#/today",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f1219",
+  "theme_color": "#0f1219",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Today", "url": "/#/today" },
+    { "name": "Calendar", "url": "/#/calendar" }
+  ]
+}
