@@ -1,11 +1,11 @@
 # Ephemeris
 
-A task manager that keeps two dates for each task:
+I've tried a million task managers. I just wanted two things:
 
 - **Planned**: the day (and, if you want, the time) you intend to work on the task.
 - **Due**: the day the task must be done by.
 
-Most task managers keep only one of these. Ephemeris keeps both and uses the difference: the Today view shows what you planned, what is due, what is late, which plans slipped, and which deadlines have no plan yet.
+Most task managers keep only one of these. So I made this little free web app to keep both. The Today view shows what you planned, what is due, what is late, which plans slipped, and which deadlines have no plan yet. I was even able to pull my Google Calendar (view only) to make it easier to plan. Optional notifications on Mac and iPhone too!
 
 It runs on the Mac and iPhone (one web app that installs to the Dock and the Home Screen) and on the Supernote (a plugin in the NOTE and DOC toolbar). All three sync through a small server that runs on a free Cloudflare account.
 
@@ -43,7 +43,7 @@ Sync is offline-first. Each device keeps a full copy. Every field of every recor
 
 Notifications are computed on the server when a task changes and stored as alarms. A cron job runs every minute and sends the alarms that are due as Web Push messages. The server encrypts the messages itself (RFC 8291) and signs them with VAPID (RFC 8292); there is no third-party push service account.
 
-Cost: the free tiers of Cloudflare Workers, D1 and KV are sufficient for one person.
+Cost: You owe me nothing, and as far as I can tell the free tiers of Cloudflare Workers, D1 and KV are sufficient for one person.
 
 ## Deploy (about 10 minutes, nothing to install)
 
@@ -151,16 +151,5 @@ Rules that prevent mistakes:
 - The Supernote plugin runs only while it is open (from the NOTE or DOC toolbar). It cannot show notifications and it cannot read or change the built-in Supernote To-Do list.
 - Attachments: 25 MB per file. The free KV tier allows 1 GB in total and 1,000 uploads a day.
 - One server is for one person. Anyone with your token can read and change your tasks.
-
-## Development
-
-```sh
-npm test                       # core (44 tests) and push crypto tests
-cd worker && npx wrangler d1 migrations apply ephemeris --local
-npm run dev                    # builds the web app and runs the Worker at http://localhost:8787
-npm run dev:web                # Vite dev server at :5173 (proxies /api to :8787)
-# live API tests against the local Worker:
-cd worker && EPH_URL=http://localhost:8787 EPH_TOKEN=<token from .dev.vars> npx vitest run test/integration.test.ts
-```
 
 MIT License.
