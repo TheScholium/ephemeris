@@ -22,7 +22,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const worker = join(root, "worker");
 const tomlPath = join(worker, "wrangler.toml");
 const NAME = "ephemeris";
-const API = "https://api.cloudflare.com/client/v4";
+const API = process.env.CF_API_BASE || "https://api.cloudflare.com/client/v4"; // override only for tests
 const token = process.env.CLOUDFLARE_API_TOKEN;
 
 const log = (s) => console.log(s);

@@ -21,15 +21,15 @@ jobs:
       run:
         working-directory: supernote
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: supernote/package-lock.json
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: zulu
           java-version: 17
@@ -39,7 +39,17 @@ jobs:
       - run: npm ci
 
       - name: Build plugin.snplg
-        run: npm run build
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee build.log
+          # The template's script continues after a failed native build; surface the reason.
+          if grep -q -E "APK build failed|Generated APK not found" build.log; then
+            msg=$(sed 's/\x1b\[[0-9;]*m//g' build.log | grep -v '^[[:space:]]*$' | grep -v -E '^(> Task|<=|BUILD FAILED in)' \
+              | grep -B70 -m1 -E "APK build failed|Generated APK not found" | tail -70 | cut -c1-300 \
+              | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+            echo "::error title=Native build failed::$msg"
+            exit 1
+          fi
 
       - name: Check the package
         run: |

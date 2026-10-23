@@ -120,7 +120,9 @@ is_ignored_module_name() {
     case "$lower" in
         react-native|react|sn-plugin-lib) return 0 ;;
     esac
-    [[ "$lower" == @react-native* ]] && return 0
+    # Only the official @react-native/ scope. The template matched "@react-native*", which also
+    # skipped community modules such as @react-native-async-storage, so their native code was never built.
+    [[ "$lower" == @react-native/* ]] && return 0
     [[ "$lower" == @react-navigation* ]] && return 0
     return 1
 }
