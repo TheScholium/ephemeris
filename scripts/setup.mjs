@@ -19,10 +19,34 @@ const secretsFile = join(worker, ".secrets.json"); // gitignored; lets reruns ke
 
 const say = (s = "") => process.stdout.write(s + "\n");
 const step = (s) => say(`\n== ${s}`);
-const wr = (args, opts = {}) =>
-  execSync(`npx wrangler ${args}`, { cwd: worker, encoding: "utf8", stdio: ["inherit", "pipe", "pipe"], ...opts });
+const wr = (args) => execSync(`npx wrangler ${args}`, { cwd: worker, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
 const b64u = (buf) => Buffer.from(buf).toString("base64url");
+
+/** Run wrangler in this terminal (prompts visible); stop setup if it fails. */
+function run(args, failMsg) {
+  const r = spawnSync("npx", ["wrangler", ...args], { cwd: worker, stdio: "inherit" });
+  if (r.status !== 0) throw new Error(failMsg);
+}
+
+/** Like run(), but also keep a copy of the output (to read the deployed address). */
+function runInTerminal(args, failMsg) {
+  const log = join(worker, ".deploy-log.txt");
+  const cmd = ["npx", "wrangler", ...args];
+  // `script` records the output while wrangler still sees a real terminal
+  const r = process.platform === "darwin"
+    ? spawnSync("script", ["-q", log, ...cmd], { cwd: worker, stdio: "inherit" })
+    : spawnSync("script", ["-q", "-e", "-c", cmd.join(" "), log], { cwd: worker, stdio: "inherit" });
+  let out = "";
+  try {
+    out = readFileSync(log, "utf8");
+    unlinkSync(log);
+  } catch {
+    /* no log */
+  }
+  if (r.status !== 0) throw new Error(failMsg);
+  return out;
+}
 
 async function vapidKeys() {
   const kp = await webcrypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
@@ -94,7 +118,16 @@ async function main() {
   writeFileSync(toml, conf);
 
   step("Tables");
-  spawnSync("npx", ["wrangler", "d1", "migrations", "apply", "ephemeris", "--remote"], { cwd: worker, stdio: "inherit" });
+  run(["d1", "migrations", "apply", "ephemeris", "--remote"], "Could not create the tables.");
+
+  step("Build the web app");
+  execSync("npm run build:web", { cwd: root, stdio: "inherit" });
+
+  step("Deploy");
+  say("If Cloudflare asks to register a workers.dev subdomain, answer yes and pick a short name.");
+  say("Your address becomes https://ephemeris.<that-name>.workers.dev");
+  const deployOut = runInTerminal(["deploy"], "The deploy failed.");
+  const url = deployOut.match(/https:\/\/[a-z0-9.-]+\.workers\.dev/)?.[0];
 
   step("Secrets");
   let secrets;
@@ -108,19 +141,11 @@ async function main() {
   const tmp = join(worker, ".secrets-upload.json");
   writeFileSync(tmp, JSON.stringify(secrets), { mode: 0o600 });
   try {
-    spawnSync("npx", ["wrangler", "secret", "bulk", tmp], { cwd: worker, stdio: "inherit" });
+    run(["secret", "bulk", tmp], "Could not save the secrets to Cloudflare.");
   } finally {
     unlinkSync(tmp);
   }
   writeFileSync(join(worker, ".dev.vars"), Object.entries(secrets).map(([k, v]) => `${k}=${v}`).join("\n") + "\n", { mode: 0o600 });
-
-  step("Build the web app");
-  execSync("npm run build:web", { cwd: root, stdio: "inherit" });
-
-  step("Deploy");
-  const dep = spawnSync("npx", ["wrangler", "deploy"], { cwd: worker, encoding: "utf8", stdio: ["inherit", "pipe", "inherit"] });
-  process.stdout.write(dep.stdout ?? "");
-  const url = (dep.stdout ?? "").match(/https:\/\/[a-z0-9.-]+\.workers\.dev/)?.[0];
   rl.close();
 
   say("\n----------------------------------------------------------------");
@@ -133,7 +158,7 @@ async function main() {
     say(`  open Ephemeris from the Home Screen, then Settings > Turn on for this device.`);
     say(`Supernote: Settings > Show a pairing code, then type it in the plugin.`);
   } else {
-    say("Deploy finished, but the address was not in the output. Run `npx wrangler deployments list` in worker/.");
+    say("Deploy finished, but the address was not in the output. It is shown in the Cloudflare dashboard under Workers & Pages > ephemeris.");
     say(`Access token: ${secrets.API_TOKEN}`);
   }
   say("Keep worker/.secrets.json private; it holds your token and push keys.");
@@ -141,5 +166,6 @@ async function main() {
 
 main().catch((e) => {
   console.error(`\nSetup stopped: ${e.message}`);
+  console.error("Fix the problem shown above and run `npm run setup` again. It reuses what already exists.");
   process.exit(1);
 });

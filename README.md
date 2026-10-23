@@ -46,7 +46,7 @@ Cost: the free tiers of Cloudflare Workers, D1 and KV are sufficient for one per
 
 ## Setup (about 10 minutes)
 
-You need Node.js 20 or later and a free Cloudflare account.
+You need Node.js 22.12 or later and a free Cloudflare account.
 
 ```sh
 npm install

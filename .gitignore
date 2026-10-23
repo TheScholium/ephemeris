@@ -4,7 +4,9 @@ dist/
 worker/.dev.vars
 worker/.secrets.json
 worker/.secrets-upload.json
+worker/.deploy-log.txt
 supernote/build/
 supernote/src/core/
 supernote/node_modules/
 .DS_Store
+.deploy-log.txt
