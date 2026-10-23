@@ -556,3 +556,11 @@ button.hday:hover { border-color: var(--brass); }
 .hstep:disabled { opacity: .35; }
 .hcount { min-width: 90px; text-align: center; color: var(--dim); }
 .hcount b { font-weight: 400; font-size: 26px; color: var(--brass-hi); margin-right: 4px; font-variant-numeric: lining-nums tabular-nums; }
+.hfab {
+  position: fixed; z-index: 40;
+  right: max(28px, calc(env(safe-area-inset-right, 0px) + 16px)); bottom: calc(28px + var(--safe-b));
+  width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center;
+  color: var(--brass); background: var(--panel); border: 1px solid var(--brass);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35); transition: background .15s, color .15s;
+}
+.hfab:hover { background: var(--brass); color: var(--night); }

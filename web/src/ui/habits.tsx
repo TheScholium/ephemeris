@@ -119,6 +119,7 @@ function Cell({ h, onOpen }: { h: Habit; onOpen: () => void }) {
 
 export function HabitsView() {
   useStore();
+  const wide = useAtom(isWide);
   const [open, setOpen] = useState<string | "new" | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const td = today();
@@ -140,20 +141,11 @@ export function HabitsView() {
       </header>
 
       {active.length === 0 && (
-        <p class="empty">Add a habit, then press and hold its ring to check it off each day.</p>
+        <p class="empty">Add a habit with the + button, then press and hold its ring to check it off each day.</p>
       )}
 
       <div class="hgrid">
         {active.map((h) => <Cell key={h.id} h={h} onOpen={() => setOpen(h.id)} />)}
-        <div class="hcell">
-          <button class="hbtn hnew" aria-label="New habit" onClick={() => setOpen("new")}>
-            <svg class="hring" viewBox="0 0 120 120" aria-hidden="true">
-              <circle class="h-track dashed" cx="60" cy="60" r={R} />
-              <path class="h-plus" d="M60 44v32M44 60h32" />
-            </svg>
-          </button>
-          <div class="hname dim">New habit</div>
-        </div>
       </div>
 
       {active.length > 0 && <p class="hhint">Press and hold a ring to check it off. Tap it for history and settings.</p>}
@@ -174,6 +166,12 @@ export function HabitsView() {
             </ul>
           )}
         </div>
+      )}
+
+      {wide && (
+        <button class="hfab" aria-label="New habit" title="New habit" onClick={() => setOpen("new")}>
+          <Icon name="plus" size={20} />
+        </button>
       )}
 
       {open && <HabitDetail id={open === "new" ? null : open} onClose={() => setOpen(null)} />}
