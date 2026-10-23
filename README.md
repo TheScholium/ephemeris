@@ -44,44 +44,67 @@ Notifications are computed on the server when a task changes and stored as alarm
 
 Cost: the free tiers of Cloudflare Workers, D1 and KV are sufficient for one person.
 
-## Setup (about 10 minutes)
+## Deploy (about 10 minutes, nothing to install)
 
-You need Node.js 22.12 or later and a free Cloudflare account.
+GitHub Actions builds and deploys everything. Your Mac needs only a browser.
 
-```sh
-npm install
-npm run setup
-```
+### 1. Make a Cloudflare API token
 
-The setup script signs you in to Cloudflare, makes the database and the file store, makes your access token and push keys, builds the web app and deploys it. At the end it prints your server address and a pairing link.
+1. Make a free account at dash.cloudflare.com (skip any offer to add a domain).
+2. Go to **My Profile > API Tokens > Create Token > Create Custom Token**.
+3. Give it a name (for example `ephemeris-deploy`) and add these four permissions, all with the type **Account**:
+   - Workers Scripts: Edit
+   - D1: Edit
+   - Workers KV Storage: Edit
+   - Account Settings: Read
+4. Select **Continue to summary**, then **Create Token**. Copy the token. Cloudflare shows it only once.
 
-### Mac
+### 2. Give the token to GitHub
 
-Open the pairing link in Safari or Chrome. In Safari, use File > Add to Dock to get an app window. In Settings, select "Turn on for this device" to get notifications on the Mac.
+In this repository: **Settings > Secrets and variables > Actions > New repository secret**.
+Name: `CLOUDFLARE_API_TOKEN`. Value: the token.
 
-### iPhone (iOS 16.4 or later)
+If your Cloudflare login can see more than one account, also add `CLOUDFLARE_ACCOUNT_ID`.
 
-1. Open the pairing link in Safari (AirDrop it from the Mac).
-2. Tap Share, then Add to Home Screen.
+### 3. Deploy
+
+**Actions > Deploy > Run workflow.** After 2 to 3 minutes, open the finished run. Its summary shows:
+
+- your address, `https://ephemeris.<subdomain>.workers.dev` (the workflow registers the subdomain `thescholium` if the account has none; set the repository variable `WORKERS_SUBDOMAIN` to choose another);
+- a 10-digit pairing code, valid for 24 hours and for one device.
+
+From then on, every push to `main` deploys again. Your secrets, database and tasks stay.
+
+### 4. Mac
+
+Open the address in Safari. Type the pairing code in the box at the top of Today. In Safari, use **File > Add to Dock** to get an app window. In Settings, select **Turn on for this device** to get notifications on the Mac.
+
+### 5. iPhone (iOS 16.4 or later)
+
+1. On the Mac, go to **Settings > Add another device > Copy pairing link**, and AirDrop the link to the iPhone. (Or select **Show a pairing code** and type that code on the iPhone.)
+2. Open the link in Safari. Tap **Share > Add to Home Screen**.
 3. Open Ephemeris from the Home Screen. Notifications work only in the Home Screen app, not in a Safari tab.
-4. Go to Settings and tap "Turn on for this device". Then tap "Send a test".
+4. Go to **Settings > Turn on for this device**, then **Send a test**.
 
-### Supernote
+### 6. Supernote
 
-The plugin needs the Supernote plugin build tools (React Native 0.79 and the Android SDK), the same setup you use for other Supernote plugins.
+The **Supernote plugin** workflow builds the plugin on every change to `supernote/` or `packages/core/`.
 
-```sh
-cd supernote
-npm install
-npm run build          # copies packages/core into the plugin, then runs buildPlugin.sh
-```
+1. In **Actions > Supernote plugin**, open the latest run and download **Ephemeris-plugin**. Unzip it.
+2. Copy `Ephemeris.snplg` to the `MyStyle` folder on the Supernote (USB, or the Supernote Partner app).
+3. On the Supernote: **Settings > Apps > Plugins > Add Plugin**, and select the file.
+4. Open a note and tap the Ephemeris button in the toolbar.
+5. On the Mac, select **Settings > Show a pairing code**. On the Supernote, type the server address and the code. Allow network access with **Always allow**.
 
-1. Copy `supernote/build/outputs/plugin.snplg` to the `MyStyle` folder on the Supernote.
-2. On the Supernote: Settings > Apps > Plugins > Add Plugin, and select the file.
-3. Open a note. Tap the Ephemeris button in the toolbar.
-4. On the Mac, go to Settings and select "Show a pairing code". On the Supernote, type the server address and the 6-digit code. Allow network access ("Always allow").
+`supernote/PluginConfig.json` holds the plugin ID. Do not change it, or the Supernote installs updates as a different plugin.
 
-The first build writes `supernote/PluginConfig.json` with a random `pluginID`. Keep that file. If the id changes, the Supernote installs the plugin as a new plugin.
+### Pairing codes and the access token
+
+Devices get the access token through a one-time code, so you never type the token. To connect a device later, use **Settings > Show a pairing code** on a connected device (10 minutes), or run the Deploy workflow with **Make a new pairing code** (24 hours). If a device is lost, run Deploy with **Replace the access token**. Every device must then connect again.
+
+### Alternative: deploy from your Mac
+
+`npm install && npm run setup` does the same from Terminal (Node.js 22.12 or later).
 
 ### Show your plan in a calendar
 

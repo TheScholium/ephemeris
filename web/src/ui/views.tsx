@@ -7,7 +7,7 @@ import {
 import { Icon } from "./icons";
 import { Empty, LoadRule, ProjectSelect, Section, TaskList } from "./common";
 import { QuickAdd } from "./quickadd";
-import { go, showToast, store, today, useStore } from "../state";
+import { conn, go, pairWithCode, showToast, store, today, useAtom, useStore } from "../state";
 
 const capacity = () => {
   const s = store.settings;
@@ -37,6 +37,62 @@ export function Header({ title, sub, children }: { title: string; sub?: preact.C
   );
 }
 
+// ---------- first-run connection ----------
+
+const DISMISS = "eph.localOnly";
+
+/** Shown until this device is connected to the server (or the user chooses to stay local). */
+function ConnectCard() {
+  const c = useAtom(conn);
+  const [code, setCode] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return localStorage.getItem(DISMISS) === "1";
+    } catch {
+      return false;
+    }
+  });
+  if (c.token || hidden || (window as any).__EPH_DEMO__) return null;
+  const submit = async (e: Event) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setErr("");
+    try {
+      await pairWithCode(code);
+      showToast("Connected. Your tasks now sync.");
+    } catch (x: any) {
+      setErr(x.message === "wrong or expired code" ? "That code is wrong or has expired. Make a new one in Settings on a connected device, or run the deploy workflow again." : x.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form class="connect" onSubmit={submit}>
+      <div class="connect-text">
+        <h2>Connect this device</h2>
+        <p>Type the pairing code from the deploy summary on GitHub, or from Settings on a device that is already connected.</p>
+      </div>
+      <div class="row-ctl wrap">
+        <input id="pair-code" class="connect-code" inputMode="numeric" autoComplete="one-time-code" placeholder="00000 00000"
+          value={code} onInput={(e) => setCode(e.currentTarget.value)} aria-label="Pairing code" />
+        <button class="btn primary" type="submit" disabled={busy || code.replace(/\D/g, "").length < 6}>{busy ? "Connecting" : "Connect"}</button>
+        <button class="link-btn" type="button" onClick={() => {
+          try {
+            localStorage.setItem(DISMISS, "1");
+          } catch {
+            /* private mode */
+          }
+          setHidden(true);
+        }}>Use without syncing</button>
+      </div>
+      {err && <p class="late-text small">{err}</p>}
+    </form>
+  );
+}
+
 // ---------- Today ----------
 
 export function TodayView() {
@@ -57,6 +113,7 @@ export function TodayView() {
           </p>
         </div>
       </Header>
+      <ConnectCard />
       <QuickAdd defaults={{ planned: td }} />
 
       {v.overdue.length > 0 && (

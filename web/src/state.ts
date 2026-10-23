@@ -147,6 +147,19 @@ export async function apiJSON<T = any>(path: string, init: RequestInit = {}): Pr
   return r.json();
 }
 
+/** Exchange a one-time pairing code for the access token. */
+export async function pairWithCode(code: string, server = conn.value.server): Promise<void> {
+  const base = (server || location.origin).replace(/\/+$/, "");
+  const r = await fetch(base + "/api/pair/claim", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code: code.replace(/\D/g, "") }),
+  });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok || !body.token) throw new Error(body.error ?? `The server answered ${r.status}`);
+  conn.set({ server, token: body.token });
+}
+
 // ---------- sync ----------
 
 export interface SyncState {

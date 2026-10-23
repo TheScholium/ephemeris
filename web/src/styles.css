@@ -486,3 +486,9 @@ mark.hl-tag, mark.hl-project, mark.hl-star { color: var(--brass-hi); }
 .ghostmark { width: 19px; height: 19px; margin-top: 3px; display: grid; place-items: center; color: var(--verd); border: 1px dashed var(--rule-2); border-radius: 50%; }
 .blk.task.ghost { background: transparent; border-style: dashed; cursor: pointer; opacity: .7; }
 .ad.ghost { opacity: .6; border-style: dashed; }
+
+/* first-run connection */
+.connect { border: 1px solid var(--brass); border-radius: var(--r); padding: 14px 16px; margin: 0 0 22px; background: rgba(201, 164, 92, .06); display: grid; gap: 10px; }
+.connect h2 { margin: 0; font-size: 21px; font-weight: 500; }
+.connect p { margin: 2px 0 0; color: var(--dim); font-size: 15px; max-width: 60ch; }
+.connect-code { font-size: 22px !important; letter-spacing: .12em; width: 11ch; font-variant-numeric: tabular-nums; }

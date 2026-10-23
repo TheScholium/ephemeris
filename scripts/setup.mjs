@@ -107,14 +107,6 @@ async function main() {
   }
   say(`kv id ${kvId}`);
 
-  step("Contact address for push services");
-  const cur = conf.match(/VAPID_SUBJECT = "mailto:([^"]*)"/)?.[1] ?? "";
-  let email = cur && cur !== "you@example.com" ? cur : "";
-  if (!email) {
-    email = (await rl.question("Email address push services may contact if your server misbehaves (stays in your config): ")).trim();
-  }
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error("That does not look like an email address.");
-  conf = conf.replace(/VAPID_SUBJECT = "[^"]*"/, `VAPID_SUBJECT = "mailto:${email}"`);
   writeFileSync(toml, conf);
 
   step("Tables");

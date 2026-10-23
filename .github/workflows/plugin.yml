@@ -1,0 +1,62 @@
+# Builds the Supernote plugin (plugin.snplg) and attaches it to the run as a download.
+name: Supernote plugin
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supernote/**"
+      - "packages/core/src/**"
+      - ".github/workflows/plugin.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: supernote
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: supernote/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: npm ci
+
+      - name: Build plugin.snplg
+        run: npm run build
+
+      - name: Check the package
+        run: |
+          f=$(ls build/outputs/*.snplg | head -1)
+          test -n "$f" || { echo "::error::No .snplg was produced"; exit 1; }
+          echo "Package: $f"
+          unzip -l "$f"
+          unzip -l "$f" | grep -q "app.npk" || { echo "::error::The package has no native code (app.npk); storage would not work"; exit 1; }
+          {
+            echo "## Supernote plugin built"
+            echo
+            echo "Download **Ephemeris-plugin** below, unzip it, copy \`Ephemeris.snplg\` to the MyStyle folder on the Supernote,"
+            echo "then Settings > Apps > Plugins > Add Plugin."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ephemeris-plugin
+          path: supernote/build/outputs/*.snplg
+          if-no-files-found: error

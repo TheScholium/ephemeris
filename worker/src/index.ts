@@ -341,9 +341,10 @@ async function calendarFeed(env: Env, url: URL) {
 }
 
 // ---------------- pairing ----------------
-// A device without a keyboard-friendly way to enter the token (the Supernote) claims it
-// with a 6-digit code made on an already connected device. Codes last 10 minutes and
-// work once; repeated wrong guesses lock claiming for 15 minutes.
+// A new device claims the access token with a one-time code instead of typing the token.
+// 6-digit codes come from Settings on a connected device and last 10 minutes; the deploy
+// workflow makes a 10-digit code that lasts 24 hours. Repeated wrong guesses lock
+// claiming for 15 minutes.
 
 const PAIR_TTL = 10 * 60_000;
 
@@ -362,7 +363,7 @@ async function claimPairing(env: Env, body: any) {
   const tries = failRow ? (JSON.parse(failRow.v) as { n: number; since: number }) : { n: 0, since: now };
   if (now - tries.since > 15 * 60_000) Object.assign(tries, { n: 0, since: now });
   if (tries.n >= 20) return fail(429, "too many wrong codes; try again in 15 minutes");
-  const row = code.length === 6 ? await env.DB.prepare("SELECT v FROM meta WHERE k = ?").bind(`pair:${code}`).first<{ v: string }>() : null;
+  const row = code.length === 6 || code.length === 10 ? await env.DB.prepare("SELECT v FROM meta WHERE k = ?").bind(`pair:${code}`).first<{ v: string }>() : null;
   if (!row || Number(row.v) < now) {
     tries.n++;
     await env.DB.prepare("INSERT OR REPLACE INTO meta (k, v) VALUES ('pairfail', ?)").bind(JSON.stringify(tries)).run();

@@ -1,5 +1,6 @@
 # Ephemeris server: sync, Web Push, attachments, calendar feeds.
-# `npm run setup` (repo root) fills in the two ids below and sets the secrets.
+# The deploy workflow (.github/workflows/deploy.yml) or `npm run setup` fills in the
+# two ids below for the deploy and sets the secrets. The zeros in the repo are placeholders.
 name = "ephemeris"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
@@ -26,7 +27,8 @@ id = "00000000000000000000000000000000"
 crons = ["* * * * *"]
 
 [vars]
-VAPID_SUBJECT = "mailto:you@example.com"
+# Contact for push services (Apple, Google, Mozilla). An https URL or a mailto: address.
+VAPID_SUBJECT = "https://github.com/TheScholium/Ephemeris"
 
 # Secrets (set by setup, never committed):
 #   API_TOKEN      bearer token for every /api call (devices and the Supernote plugin)

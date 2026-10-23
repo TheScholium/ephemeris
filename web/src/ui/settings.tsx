@@ -2,7 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { createProject, createSpace, fmtTime12, type Project, type Rec, type Settings, type Space } from "@ephemeris/core";
 import { Icon } from "./icons";
 import { SyntaxHelp } from "./quickadd";
-import { api, apiBase, apiJSON, conn, connected, showToast, store, syncNow, syncState, useAtom, useStore } from "../state";
+import { api, apiBase, apiJSON, conn, connected, pairWithCode, showToast, store, syncNow, syncState, useAtom, useStore } from "../state";
 
 const set = (patch: Partial<Settings>) => store.update<Settings>("settings", patch);
 
@@ -77,6 +77,7 @@ export function SettingsView() {
   const [newSpace, setNewSpace] = useState("");
   const [newProject, setNewProject] = useState("");
   const [pair, setPair] = useState<{ code: string; expires: number } | null>(null);
+  const [code, setCode] = useState("");
   const zones = (Intl as any).supportedValuesOf ? ((Intl as any).supportedValuesOf("timeZone") as string[]) : [s.tz];
 
   useEffect(() => {
@@ -104,7 +105,20 @@ export function SettingsView() {
         <Field label="Server" hint="Leave empty when this page is served by your Ephemeris server.">
           <input value={server} placeholder={location.origin} onInput={(e) => setServer(e.currentTarget.value.trim())} inputMode="url" />
         </Field>
-        <Field label="Access token" hint="Printed by the setup script. Anyone with it can read and change your tasks.">
+        {!connected() && (
+          <Field label="Pairing code" hint="The easiest way to connect: type a code from the deploy summary on GitHub or from another device.">
+            <input id="settings-pair-code" inputMode="numeric" value={code} placeholder="00000 00000" onInput={(e) => setCode(e.currentTarget.value)} />
+            <button class="btn primary" onClick={async () => {
+              try {
+                await pairWithCode(code, server);
+                showToast("Connected");
+              } catch (e: any) {
+                showToast(`Could not connect: ${e.message}`);
+              }
+            }}>Connect with code</button>
+          </Field>
+        )}
+        <Field label="Access token" hint="Alternative to a pairing code. Anyone with the token can read and change your tasks.">
           <input type="password" value={token} onInput={(e) => setToken(e.currentTarget.value.trim())} autoComplete="off" />
         </Field>
         <div class="row-ctl">

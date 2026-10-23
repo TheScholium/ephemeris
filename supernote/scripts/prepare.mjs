@@ -33,5 +33,5 @@ if (!existsSync(cfgPath)) {
     "uses-permissions": ["plugin.permission.INTERNET"],
   };
   writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + "\n");
-  console.log(`created PluginConfig.json (pluginID ${id}); keep this file, the device knows the plugin by that id`);
+  console.log(`created PluginConfig.json (pluginID ${id}); commit this file: the Supernote knows the plugin by that id`);
 }

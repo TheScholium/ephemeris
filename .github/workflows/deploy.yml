@@ -1,0 +1,74 @@
+# Builds the web app and deploys the server to your Cloudflare account on every push to main.
+# One-time setup: add the repository secret CLOUDFLARE_API_TOKEN (see README, "Deploy").
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "supernote/**"
+      - "**.md"
+  workflow_dispatch:
+    inputs:
+      new_pairing_code:
+        description: "Make a new pairing code (24 hours, single use)"
+        type: boolean
+        default: true
+      rotate_token:
+        description: "Replace the access token (every device must connect again)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build the web app
+        run: npm run build:web
+
+      - name: Check for the Cloudflare token
+        id: token
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## Not deployed yet"
+              echo
+              echo "Tests and the build passed. To deploy, add the repository secret **CLOUDFLARE_API_TOKEN**"
+              echo "(Settings > Secrets and variables > Actions), then run this workflow again from the Actions tab."
+              echo "The README section \"Deploy\" shows how to make the token."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy to Cloudflare
+        if: steps.token.outputs.ok == 'true'
+        env:
+          NEW_PAIRING_CODE: ${{ github.event_name == 'workflow_dispatch' && inputs.new_pairing_code }}
+          ROTATE_TOKEN: ${{ github.event_name == 'workflow_dispatch' && inputs.rotate_token }}
+          SUBDOMAIN: ${{ vars.WORKERS_SUBDOMAIN }}
+        run: node scripts/ci-deploy.mjs
