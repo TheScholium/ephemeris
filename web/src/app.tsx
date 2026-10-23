@@ -213,8 +213,12 @@ export function App() {
           <div class="mtop">
             <button class="icon-btn" aria-label="Menu" onClick={() => setDrawer(true)}><Icon name="menu" size={20} /></button>
             <span class="mtop-title">Ephemeris</span>
-            <button class={`icon-btn ${mode ? "ink-brass" : ""}`} aria-label="Select tasks" aria-pressed={mode}
-              onClick={() => (mode ? clearSelection() : selectMode.set(true))}><Icon name="select" size={20} /></button>
+            <span class="mtop-right">
+              <button class={`icon-btn ${mode ? "ink-brass" : ""}`} aria-label="Select tasks" aria-pressed={mode}
+                onClick={() => (mode ? clearSelection() : selectMode.set(true))}><Icon name="select" size={20} /></button>
+              <a class={`icon-btn ${r.view === "settings" ? "ink-brass" : ""}`} href="#/settings" aria-label="Settings"
+                aria-current={r.view === "settings" ? "page" : undefined}><Icon name="gear" size={20} /></a>
+            </span>
           </div>
         )}
         <Main />
