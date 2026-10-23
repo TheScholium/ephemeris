@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # to publish the plugin as a release
 
 jobs:
   build:
@@ -65,7 +65,7 @@ jobs:
           {
             echo "## Supernote plugin built"
             echo
-            echo "Download **Ephemeris-plugin** below, unzip it, copy \`Ephemeris.snplg\` to the MyStyle folder on the Supernote,"
+            echo "Download Ephemeris.snplg from the release link below (or the **Ephemeris-plugin** artifact), copy it to the MyStyle folder on the Supernote,"
             echo "then Settings > Apps > Plugins > Add Plugin."
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -74,3 +74,23 @@ jobs:
           name: Ephemeris-plugin
           path: supernote/build/outputs/*.snplg
           if-no-files-found: error
+
+      # One release that always holds the newest plugin, at a fixed link:
+      # https://github.com/<owner>/<repo>/releases/download/supernote-plugin/Ephemeris.snplg
+      - name: Publish the newest plugin
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          f=$(ls build/outputs/*.snplg | head -1)
+          notes="Newest Ephemeris plugin for Supernote, built from ${GITHUB_SHA::7}. Copy Ephemeris.snplg to the MyStyle folder, then Settings > Apps > Plugins > Add Plugin."
+          if gh release view supernote-plugin >/dev/null 2>&1; then
+            gh release edit supernote-plugin --notes "$notes"
+          else
+            gh release create supernote-plugin --title "Supernote plugin" --notes "$notes" --target "$GITHUB_SHA"
+          fi
+          gh release upload supernote-plugin "$f" --clobber
+          {
+            echo
+            echo "Direct download: https://github.com/${GITHUB_REPOSITORY}/releases/download/supernote-plugin/$(basename "$f")"
+          } >> "$GITHUB_STEP_SUMMARY"

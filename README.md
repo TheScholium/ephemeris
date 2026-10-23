@@ -90,7 +90,7 @@ Open the address in Safari. Type the pairing code in the box at the top of Today
 
 The **Supernote plugin** workflow builds the plugin on every change to `supernote/` or `packages/core/`.
 
-1. In **Actions > Supernote plugin**, open the latest run and download **Ephemeris-plugin**. Unzip it.
+1. Download the newest plugin from the repository's **Releases > Supernote plugin** (`Ephemeris.snplg`). Every change to the plugin replaces this file.
 2. Copy `Ephemeris.snplg` to the `MyStyle` folder on the Supernote (USB, or the Supernote Partner app).
 3. On the Supernote: **Settings > Apps > Plugins > Add Plugin**, and select the file.
 4. Open a note and tap the Ephemeris button in the toolbar.
