@@ -491,4 +491,4 @@ mark.hl-tag, mark.hl-project, mark.hl-star { color: var(--brass-hi); }
 .connect { border: 1px solid var(--brass); border-radius: var(--r); padding: 14px 16px; margin: 0 0 22px; background: rgba(201, 164, 92, .06); display: grid; gap: 10px; }
 .connect h2 { margin: 0; font-size: 21px; font-weight: 500; }
 .connect p { margin: 2px 0 0; color: var(--dim); font-size: 15px; max-width: 60ch; }
-.connect-code { font-size: 22px !important; letter-spacing: .12em; width: 11ch; font-variant-numeric: tabular-nums; }
+.connect-code { font-size: 22px !important; letter-spacing: .08em; width: 15ch; max-width: 100%; font-variant-numeric: tabular-nums; }
