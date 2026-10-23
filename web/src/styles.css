@@ -495,3 +495,6 @@ mark.hl-tag, mark.hl-project, mark.hl-star { color: var(--brass-hi); }
 .connect h2 { margin: 0; font-size: 21px; font-weight: 500; }
 .connect p { margin: 2px 0 0; color: var(--dim); font-size: 15px; max-width: 60ch; }
 .connect-code { font-size: 22px !important; letter-spacing: .08em; width: 15ch; max-width: 100%; font-variant-numeric: tabular-nums; }
+.pushstatus { grid-column: 1 / -1; display: grid; gap: 2px; margin: 4px 0 8px; }
+.pushstatus ul { margin: 4px 0 0; padding-left: 18px; }
+.pushstatus p { margin: 0; }

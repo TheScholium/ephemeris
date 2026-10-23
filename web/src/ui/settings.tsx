@@ -51,6 +51,58 @@ export async function enablePush(): Promise<string> {
   return deviceName();
 }
 
+interface LastPush {
+  at: number;
+  kind: string;
+  results: { device: string; service: string; status: number; reason: string }[];
+}
+
+const REASONS: Record<string, string> = {
+  BadJwtToken: "the server's signature was refused (check VAPID_SUBJECT in worker/wrangler.toml)",
+  VapidPkHashMismatch: "this device subscribed with older keys; select Turn on for this device again",
+  BadWebPushRequest: "the message encryption was refused",
+  TooManyRequests: "too many messages in a short time; wait a few minutes",
+};
+
+function describe(r: LastPush["results"][number]): string {
+  if (r.status === 201 || r.status === 200 || r.status === 202) return `${r.service} accepted it (${r.status}). If no banner appeared, check Focus and the notification settings for Ephemeris on that device.`;
+  if (r.status === 404 || r.status === 410) return `${r.service} says the subscription has expired (${r.status}). It was removed; select Turn on for this device again on it.`;
+  if (!r.status) return `The server could not reach ${r.service}: ${r.reason}`;
+  return `${r.service} refused it (${r.status}${r.reason ? ", " + r.reason : ""})${REASONS[r.reason] ? ": " + REASONS[r.reason] : "."}`;
+}
+
+/** This device's own state plus the push services' answers for the last message. */
+function PushStatus({ last, onRefresh }: { last: LastPush | null; onRefresh: () => void }) {
+  const [local, setLocal] = useState<string>("");
+  useEffect(() => {
+    (async () => {
+      const perm = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
+      let sub = "no subscription";
+      try {
+        const reg = await navigator.serviceWorker?.getRegistration();
+        if (!reg) sub = "no service worker";
+        else if (await reg.pushManager?.getSubscription()) sub = "subscribed";
+      } catch {
+        sub = "unknown";
+      }
+      setLocal(`This device: permission ${perm}, ${sub}${isIOS() ? (isStandalone() ? ", Home Screen app" : ", Safari tab (not supported)") : ""}.`);
+    })();
+  }, [last]);
+  return (
+    <div class="pushstatus">
+      {local && <p class="sf-hint">{local}</p>}
+      {last && (
+        <div class="sf-hint">
+          <p>Last {last.kind === "test" ? "test" : "notification"}, {new Date(last.at).toLocaleTimeString()}:</p>
+          {last.results.length === 0 && <p>No device was subscribed.</p>}
+          <ul>{last.results.map((r) => <li><b>{r.device}</b>: {describe(r)}</li>)}</ul>
+        </div>
+      )}
+      <button class="link-btn small" onClick={onRefresh}>Show the last result</button>
+    </div>
+  );
+}
+
 function Field({ label, children, hint }: { label: string; children: preact.ComponentChildren; hint?: preact.ComponentChildren }) {
   return (
     <div class="sf">
@@ -79,6 +131,22 @@ export function SettingsView() {
   const [pair, setPair] = useState<{ code: string; expires: number } | null>(null);
   const [code, setCode] = useState("");
   const zones = (Intl as any).supportedValuesOf ? ((Intl as any).supportedValuesOf("timeZone") as string[]) : [s.tz];
+
+  const [last, setLast] = useState<LastPush | null>(null);
+  const loadLast = async () => {
+    try {
+      setLast(await apiJSON<LastPush | null>("/api/push/last"));
+    } catch {
+      /* offline */
+    }
+  };
+  useEffect(() => {
+    if (!connected()) return;
+    void loadLast();
+    const onVis = () => document.visibilityState === "visible" && void loadLast();
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [c.token]);
 
   useEffect(() => {
     if (!connected()) return;
@@ -175,14 +243,22 @@ export function SettingsView() {
               }}><Icon name="bell" /> Turn on for this device</button>
               <button class="btn" onClick={async () => {
                 try {
-                  const r = await apiJSON<{ sent: number }>("/api/push/test", { method: "POST" });
-                  setPushMsg(r.sent ? `Test sent to ${r.sent} device${r.sent > 1 ? "s" : ""}.` : "No device has notifications on yet.");
+                  const r = await apiJSON<{ devices: number }>("/api/push/test", {
+                    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ delay: 10 }),
+                  });
+                  if (!r.devices) {
+                    setPushMsg("No device has notifications on yet. Select Turn on for this device first.");
+                    return;
+                  }
+                  setPushMsg("The test is sent in 10 seconds. Leave Ephemeris now (go to the Home Screen or lock the phone). Then come back here to see what the push service answered.");
+                  setTimeout(() => void loadLast(), 14_000);
                 } catch (e: any) {
                   setPushMsg(e.message);
                 }
-              }}>Send a test</button>
+              }}>Send a test in 10 seconds</button>
             </div>
             {pushMsg && <p class="sf-hint">{pushMsg}</p>}
+            <PushStatus last={last} onRefresh={() => void loadLast()} />
             {devices.length > 0 && <p class="sf-hint">Devices: {devices.map((d) => d.device || "unnamed").join(", ")}</p>}
           </>
         )}

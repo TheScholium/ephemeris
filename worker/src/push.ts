@@ -94,12 +94,15 @@ export interface PushKeys {
   privateKey: string;
 }
 
-export async function sendPush(sub: PushSub, message: unknown, keys: PushKeys, ttl = 4 * 3600): Promise<Response> {
+/** Returns the Authorization header for an endpoint; lets the caller reuse tokens (Apple asks for at most one new JWT per hour). */
+export type AuthSource = (endpoint: string) => Promise<string>;
+
+export async function sendPush(sub: PushSub, message: unknown, keys: PushKeys, ttl = 4 * 3600, auth?: AuthSource): Promise<Response> {
   const body = await encryptPayload(te.encode(JSON.stringify(message)), sub.p256dh, sub.auth);
   return fetch(sub.endpoint, {
     method: "POST",
     headers: {
-      Authorization: await vapidAuth(sub.endpoint, keys.subject, keys.publicKey, keys.privateKey),
+      Authorization: auth ? await auth(sub.endpoint) : await vapidAuth(sub.endpoint, keys.subject, keys.publicKey, keys.privateKey),
       "Content-Encoding": "aes128gcm",
       "Content-Type": "application/octet-stream",
       TTL: String(ttl),

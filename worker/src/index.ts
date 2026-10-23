@@ -4,7 +4,8 @@
 //   GET  /api/push/key          VAPID public key
 //   POST /api/push/subscribe    register a device for notifications
 //   POST /api/push/unsubscribe
-//   POST /api/push/test         send a test notification to every device
+//   POST /api/push/test         send a test notification to every device ({delay} seconds later)
+//   GET  /api/push/last         what the push services answered for the last send
 //   GET  /api/push/devices
 //   POST /api/files             upload an attachment (raw body, X-File-Name header)
 //   GET  /api/files/:id         download an attachment
@@ -17,7 +18,7 @@ import {
   buildICS, defaultSettings, digest, epochToZoned, mergeRec, taskAlarms,
   type Rec, type Settings, type SyncRequest, type SyncResponse, type Task,
 } from "@ephemeris/core";
-import { sendPush, type PushKeys, type PushSub } from "./push";
+import { sendPush, vapidAuth, type PushKeys, type PushSub } from "./push";
 
 export interface Env {
   DB: D1Database;
@@ -86,8 +87,20 @@ export default {
         return json({ ok: true });
       }
       if (path === "/api/push/test" && req.method === "POST") {
-        const n = await broadcast(env, { title: "Ephemeris", body: "Notifications work on this device.", url: "/", tag: "test" });
-        return json({ sent: n });
+        const body = (await req.json().catch(() => ({}))) as { delay?: number };
+        const delay = Math.max(0, Math.min(20, Number(body.delay) || 0));
+        const msg = { title: "Ephemeris", body: "Notifications work on this device.", url: "/", tag: "test" };
+        const devices = (await subs(env)).length;
+        if (delay) {
+          // send after the user has left the app (iOS can hide a web app's banner while it is open)
+          ctx.waitUntil(new Promise((r) => setTimeout(r, delay * 1000)).then(() => broadcast(env, msg, "test")));
+          return json({ scheduled: true, delay, devices });
+        }
+        return json({ results: await broadcast(env, msg, "test"), devices });
+      }
+      if (path === "/api/push/last") {
+        const row = await env.DB.prepare("SELECT v FROM meta WHERE k = 'lastpush'").first<{ v: string }>();
+        return json(row ? JSON.parse(row.v) : null);
       }
       if (path === "/api/push/devices") {
         const r = await env.DB.prepare("SELECT device, created FROM subscriptions ORDER BY created").all();
@@ -228,21 +241,72 @@ async function subs(env: Env): Promise<PushSub[]> {
 
 const keys = (env: Env): PushKeys => ({ subject: env.VAPID_SUBJECT, publicKey: env.VAPID_PUBLIC, privateKey: env.VAPID_PRIVATE });
 
-async function broadcast(env: Env, msg: { title: string; body: string; url: string; tag: string }): Promise<number> {
-  if (!env.VAPID_PUBLIC || !env.VAPID_PRIVATE) return 0;
-  let sent = 0;
-  for (const s of await subs(env)) {
+export interface PushResult {
+  device: string;
+  service: string;
+  status: number;
+  reason: string;
+}
+
+const SERVICE = (endpoint: string) => {
+  const h = new URL(endpoint).hostname;
+  return h.endsWith("push.apple.com") ? "Apple" : h.includes("googleapis") ? "Google" : h.includes("mozilla") ? "Mozilla" : h.includes("windows") ? "Microsoft" : h;
+};
+
+/** VAPID tokens are reused for up to an hour per push service (Apple asks not to refresh more often). */
+function authCache(env: Env) {
+  const mem = new Map<string, string>();
+  return async (endpoint: string) => {
+    const aud = new URL(endpoint).origin;
+    if (mem.has(aud)) return mem.get(aud)!;
+    const key = `vapid:${aud}`;
+    const row = await env.DB.prepare("SELECT v FROM meta WHERE k = ?").bind(key).first<{ v: string }>();
+    if (row) {
+      const c = JSON.parse(row.v) as { header: string; made: number; pub: string };
+      if (Date.now() - c.made < 3600_000 && c.pub === env.VAPID_PUBLIC) {
+        mem.set(aud, c.header);
+        return c.header;
+      }
+    }
+    const header = await vapidAuth(endpoint, env.VAPID_SUBJECT, env.VAPID_PUBLIC, env.VAPID_PRIVATE);
+    await env.DB.prepare("INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)")
+      .bind(key, JSON.stringify({ header, made: Date.now(), pub: env.VAPID_PUBLIC })).run();
+    mem.set(aud, header);
+    return header;
+  };
+}
+
+async function broadcast(env: Env, msg: { title: string; body: string; url: string; tag: string }, kind = "reminder"): Promise<PushResult[]> {
+  if (!env.VAPID_PUBLIC || !env.VAPID_PRIVATE) return [];
+  const results: PushResult[] = [];
+  const auth = authCache(env);
+  const list = await env.DB.prepare("SELECT endpoint, p256dh, auth, device FROM subscriptions").all<PushSub & { device: string }>();
+  for (const s of list.results) {
+    const r: PushResult = { device: s.device || "device", service: SERVICE(s.endpoint), status: 0, reason: "" };
     try {
-      const res = await sendPush(s, msg, keys(env));
+      const res = await sendPush(s, msg, keys(env), 4 * 3600, auth);
+      r.status = res.status;
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        try {
+          r.reason = (JSON.parse(text) as { reason?: string }).reason ?? text.slice(0, 120);
+        } catch {
+          r.reason = text.slice(0, 120);
+        }
+        console.error("push", r.device, res.status, text);
+      }
       if (res.status === 404 || res.status === 410) {
         await env.DB.prepare("DELETE FROM subscriptions WHERE endpoint = ?").bind(s.endpoint).run();
-      } else if (res.ok) sent++;
-      else console.error("push", res.status, await res.text());
-    } catch (e) {
-      console.error("push error", e);
+        r.reason = r.reason || "subscription expired; removed";
+      }
+    } catch (e: any) {
+      r.reason = String(e?.message ?? e).slice(0, 120);
     }
+    results.push(r);
   }
-  return sent;
+  await env.DB.prepare("INSERT OR REPLACE INTO meta (k, v) VALUES ('lastpush', ?)")
+    .bind(JSON.stringify({ at: Date.now(), kind, results })).run();
+  return results;
 }
 
 export async function tick(env: Env) {
