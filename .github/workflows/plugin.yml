@@ -34,7 +34,7 @@ jobs:
           distribution: zulu
           java-version: 17
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
 
       - run: npm ci
 
@@ -69,7 +69,7 @@ jobs:
             echo "then Settings > Apps > Plugins > Add Plugin."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Ephemeris-plugin
           path: supernote/build/outputs/*.snplg
