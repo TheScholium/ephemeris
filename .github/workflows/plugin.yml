@@ -58,6 +58,10 @@ jobs:
           echo "Package: $f"
           unzip -l "$f"
           unzip -l "$f" | grep -q "app.npk" || { echo "::error::The package has no native code (app.npk); storage would not work"; exit 1; }
+          cfg=$(unzip -p "$f" PluginConfig.json)
+          echo "$cfg"
+          echo "::notice title=PluginConfig.json::$(echo "$cfg" | tr -d '\n' | sed 's/%/%25/g')"
+          echo "$cfg" | grep -q "AsyncStoragePackage" || { echo "::error::reactPackages does not register AsyncStoragePackage"; exit 1; }
           {
             echo "## Supernote plugin built"
             echo
