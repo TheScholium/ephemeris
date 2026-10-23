@@ -564,3 +564,11 @@ button.hday:hover { border-color: var(--brass); }
   box-shadow: 0 6px 18px rgba(0, 0, 0, .35); transition: background .15s, color .15s;
 }
 .hfab:hover { background: var(--brass); color: var(--night); }
+
+/* segmented switch (calendar span) */
+.seg { display: inline-flex; border: 1px solid var(--rule-2); border-radius: var(--r); overflow: hidden; }
+.seg button { padding: 4px 12px; min-height: 34px; color: var(--dim); font-size: 15px; border-left: 1px solid var(--rule-2); }
+.seg button:first-child { border-left: 0; }
+.seg button:hover { color: var(--ink); }
+.seg button.on { background: var(--raise); color: var(--brass-hi); }
+.cal-head .row-ctl { flex-wrap: wrap; }

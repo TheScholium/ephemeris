@@ -11,6 +11,18 @@ import { Section } from "./common";
 import { api, clock, connected, isWide, openTask, showToast, store, today, useAtom, useStore } from "../state";
 
 const HOUR = 48; // px per hour
+
+type Span = 1 | 3 | 7;
+const SPANS: [Span, string][] = [[1, "Day"], [3, "3 days"], [7, "Week"]];
+const SPAN_KEY = "eph.calDays";
+function storedSpan(): Span | null {
+  try {
+    const v = Number(localStorage.getItem(SPAN_KEY));
+    return v === 1 || v === 3 || v === 7 ? v : null;
+  } catch {
+    return null;
+  }
+}
 const SNAP = 15;
 
 const feedCache = new Map<string, { at: number; text: string }>();
@@ -116,9 +128,27 @@ export function CalendarView() {
   const wide = useAtom(isWide);
   const td = today();
   const s = store.settings;
-  const nDays = wide ? 7 : 3;
-  const [anchor, setAnchor] = useState<ISODate>(wide ? startOfWeek(td, s.weekStart) : td);
-  useEffect(() => setAnchor(wide ? startOfWeek(td, s.weekStart) : td), [wide]);
+  // 1, 3 or 7 days; each device remembers its own choice, else phone = 1 and computer = 7
+  const [nDays, setNDays] = useState<Span>(() => storedSpan() ?? (wide ? 7 : 1));
+  const startFor = (n: Span, d: ISODate) => (n === 7 ? startOfWeek(d, s.weekStart) : d);
+  const [anchor, setAnchor] = useState<ISODate>(() => startFor(nDays, td));
+  useEffect(() => {
+    if (storedSpan() != null) return;
+    const n: Span = wide ? 7 : 1;
+    setNDays(n);
+    setAnchor(startFor(n, td));
+  }, [wide]);
+  const chooseSpan = (n: Span) => {
+    // keep today in view when it is visible now; otherwise keep the shown period
+    const showingToday = td >= anchor && td <= addDays(anchor, nDays - 1);
+    setNDays(n);
+    setAnchor(startFor(n, showingToday ? td : anchor));
+    try {
+      localStorage.setItem(SPAN_KEY, String(n));
+    } catch {
+      /* private mode */
+    }
+  };
   const days = Array.from({ length: nDays }, (_, i) => addDays(anchor, i));
   const from = days[0];
   const to = days[nDays - 1];
@@ -252,6 +282,7 @@ export function CalendarView() {
   const title = (() => {
     const a = parseISO(from);
     const b = parseISO(to);
+    if (nDays === 1) return `${WEEKDAY_NAMES[weekday(from)]}, ${MONTH_NAMES[a.m - 1]} ${a.d}`;
     return a.m === b.m ? `${MONTH_NAMES[a.m - 1]} ${a.d} to ${b.d}` : `${MONTH_NAMES[a.m - 1]} ${a.d} to ${MONTH_NAMES[b.m - 1]} ${b.d}`;
   })();
 
@@ -269,9 +300,14 @@ export function CalendarView() {
       <header class="vh cal-head">
         <h1>{title}</h1>
         <div class="row-ctl">
-          <button class="icon-btn" aria-label="Earlier" onClick={() => setAnchor(addDays(anchor, -nDays))}><Icon name="left" /></button>
-          <button class="btn" onClick={() => setAnchor(wide ? startOfWeek(td, s.weekStart) : td)}>Today</button>
-          <button class="icon-btn" aria-label="Later" onClick={() => setAnchor(addDays(anchor, nDays))}><Icon name="right" /></button>
+          <div class="seg" role="group" aria-label="Days shown">
+            {SPANS.map(([n, label]) => (
+              <button class={nDays === n ? "on" : ""} aria-pressed={nDays === n} onClick={() => chooseSpan(n)}>{label}</button>
+            ))}
+          </div>
+          <button class="icon-btn" aria-label={nDays === 1 ? "Previous day" : "Earlier"} onClick={() => setAnchor(addDays(anchor, -nDays))}><Icon name="left" /></button>
+          <button class="btn" onClick={() => setAnchor(startFor(nDays, td))}>Today</button>
+          <button class="icon-btn" aria-label={nDays === 1 ? "Next day" : "Later"} onClick={() => setAnchor(addDays(anchor, nDays))}><Icon name="right" /></button>
           {!s.feeds?.length && <a class="link-btn small" href="#/settings">Show your calendars here</a>}
         </div>
       </header>
