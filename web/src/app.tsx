@@ -6,6 +6,7 @@ import { TaskDetail } from "./ui/detail";
 import { BulkBar } from "./ui/bulk";
 import { CalendarView } from "./ui/calendar";
 import { SettingsView } from "./ui/settings";
+import { HabitsView } from "./ui/habits";
 import {
   BacklogView, InboxView, LogbookView, ProjectView, SearchView, SpaceView, TagView, TagsView, TodayView, UpcomingView,
 } from "./ui/views";
@@ -41,10 +42,9 @@ function Sidebar({ onNav }: { onNav?: () => void }) {
   return (
     <nav class="sidebar" aria-label="Views">
       <div class="brand">
-        <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-          <circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.6" />
-          <path d="M16 5v22M5 16h22" stroke="currentColor" stroke-width=".8" opacity=".5" />
-          <circle cx="21.5" cy="10.5" r="2.4" fill="currentColor" />
+        <svg width="22" height="22" viewBox="0 0 100 100" aria-hidden="true">
+          <path fill="currentColor" d="M50 10 Q55 37 78 42 Q55 47 50 74 Q45 47 22 42 Q45 37 50 10 Z" />
+          <line x1="12" y1="88" x2="88" y2="88" stroke="currentColor" stroke-width="6" stroke-linecap="round" opacity=".6" />
         </svg>
         <span>Ephemeris</span>
       </div>
@@ -52,6 +52,7 @@ function Sidebar({ onNav }: { onNav?: () => void }) {
       <NavItem view="upcoming" icon="upcoming" label="Upcoming" onNav={onNav} />
       <NavItem view="calendar" icon="calendar" label="Calendar" onNav={onNav} />
       <NavItem view="inbox" icon="inbox" label="Inbox" count={inbox(store.tasks).length} onNav={onNav} />
+      <NavItem view="habits" icon="habit" label="Habits" onNav={onNav} />
       <NavItem view="unplanned" icon="plan" label="Unplanned" onNav={onNav} />
       <NavItem view="logbook" icon="log" label="Logbook" onNav={onNav} />
       <NavItem view="search" icon="search" label="Find" onNav={onNav} />
@@ -108,6 +109,7 @@ function Main() {
     case "tags": return <TagsView />;
     case "search": return <SearchView q={r.arg} />;
     case "settings": return <SettingsView />;
+    case "habits": return <HabitsView />;
     default: return <TodayView />;
   }
 }
@@ -179,6 +181,7 @@ function useKeys() {
         "3": () => go("calendar"),
         "4": () => go("inbox"),
         "5": () => go("logbook"),
+        "6": () => go("habits"),
       };
       const f = map[e.key];
       if (f) {
@@ -233,13 +236,13 @@ export function App() {
         <>
           <nav class="tabbar" aria-label="Main views">
             {[
-              ["today", "today", "Today"], ["upcoming", "upcoming", "Upcoming"], ["calendar", "calendar", "Calendar"], ["inbox", "inbox", "Inbox"],
+              ["today", "today", "Today"], ["upcoming", "upcoming", "Upcoming"], ["calendar", "calendar", "Calendar"], ["habits", "habit", "Habits"],
             ].map(([v, ic, l]) => (
               <a href={`#/${v}`} class={r.view === v ? "on" : ""} aria-current={r.view === v ? "page" : undefined}><Icon name={ic} size={20} /><span>{l}</span></a>
             ))}
-            <button onClick={() => setSheet(true)} class="tab-add" aria-label="New task"><Icon name="plus" size={22} /></button>
+            <button onClick={() => (r.view === "habits" ? dispatchEvent(new Event("eph:new-habit")) : setSheet(true))} class="tab-add" aria-label={r.view === "habits" ? "New habit" : "New task"}><Icon name="plus" size={22} /></button>
           </nav>
-          {sheet && (
+          {sheet && r.view !== "habits" && (
             <div class="sheet-bg" onClick={() => setSheet(false)}>
               <div class="sheet qa-sheet" onClick={(e) => e.stopPropagation()}>
                 <QuickAdd autoFocus defaults={r.view === "today" ? { planned: today() } : r.view === "project" && r.arg ? { projectId: r.arg } : r.view === "tag" && r.arg ? { tags: [r.arg] } : {}} onAdded={() => setSheet(false)} />

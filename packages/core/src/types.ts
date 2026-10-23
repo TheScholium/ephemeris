@@ -137,7 +137,37 @@ export interface Settings extends Base {
   dayEnd: HHMM;
 }
 
-export type Rec = Task | Project | Space | Settings;
+/**
+ * How often a habit is due.
+ *  daily     every day
+ *  days      specific weekdays (days: 0 = Sunday ... 6 = Saturday)
+ *  week      n times per week (any days)
+ *  month     n times per calendar month
+ *  interval  at least once every n days ("every other day" = 2)
+ */
+export interface HabitSchedule {
+  type: "daily" | "days" | "week" | "month" | "interval";
+  n?: number;
+  days?: number[];
+}
+
+/**
+ * A habit. Check-ins are stored as one field per day, `d:YYYY-MM-DD` = 1 (done) or 0
+ * (undone), so each day merges on its own clock and offline check-ins on two devices
+ * never overwrite each other.
+ */
+export interface Habit extends Base {
+  kind: "habit";
+  name: string;
+  /** one or two characters shown in the circle */
+  glyph: string;
+  schedule: HabitSchedule;
+  order: number;
+  archived: boolean;
+  [day: `d:${string}`]: number;
+}
+
+export type Rec = Task | Project | Space | Settings | Habit;
 export type Kind = Rec["kind"];
 
 export const SETTINGS_ID = "settings";

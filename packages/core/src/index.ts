@@ -8,3 +8,4 @@ export * from "./ops";
 export * from "./query";
 export * from "./alarms";
 export * from "./ics";
+export * from "./habits";

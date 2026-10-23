@@ -4,7 +4,7 @@
 
 import { localTZ } from "./dates";
 import { HLC, mergeRec, maxClock, randomId, stamp, stampAll, type SyncRequest, type SyncResponse } from "./sync";
-import { SETTINGS_ID, type Project, type Rec, type Settings, type Space, type Task } from "./types";
+import { SETTINGS_ID, type Habit, type Project, type Rec, type Settings, type Space, type Task } from "./types";
 
 export interface StoreMeta {
   node: string;
@@ -94,6 +94,11 @@ export class Store {
   get projects(): Project[] {
     return [...this.recs.values()]
       .filter((r): r is Project => r.kind === "project" && !r.deleted)
+      .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  }
+  get habits(): Habit[] {
+    return [...this.recs.values()]
+      .filter((r): r is Habit => r.kind === "habit" && !r.deleted)
       .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
   }
   get spaces(): Space[] {

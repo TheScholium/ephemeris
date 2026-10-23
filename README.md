@@ -24,6 +24,7 @@ It runs on the Mac and iPhone (one web app that installs to the Dock and the Hom
 | Calendar view with drag to plan, your own calendars beside tasks | yes | no |
 | Your plan inside Apple Calendar or Google Calendar | subscription feed | no |
 | Notifications | iPhone (Home Screen app) and Mac | no |
+| Habits: every day, weekdays, n per week or month, every n days; streaks and history | yes (Habits screen) | no |
 | Works offline, syncs later | yes | yes |
 
 ## How it is built
