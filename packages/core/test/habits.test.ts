@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   Store, memoryPersistence, createHabit, setDone, toggleDone, habitState, streak, habitStats, historyGrid, describeSchedule,
-  mergeRec, addDays, type Habit, type HabitSchedule, type SyncRequest, type SyncResponse, type Rec,
+  mergeRec, addDays, holdCheckIn, countOn, addCheckIn, describeHabit, type Habit, type HabitSchedule, type SyncRequest, type SyncResponse, type Rec,
 } from "../src";
 
 const T = "2026-10-23"; // Friday
@@ -77,6 +77,50 @@ describe("habits", () => {
     expect(g[3][5].future).toBe(true);
   });
 
+  it("several times a day: a day counts only when the target is met", async () => {
+    const s = await mk();
+    const h = createHabit(s, "Water", { type: "daily" }, "W", 3);
+    expect(describeHabit(h)).toBe("Every day, 3 times a day");
+    expect(holdCheckIn(s, h.id, "2026-10-22")).toEqual({ before: 0, after: 1 });
+    holdCheckIn(s, h.id, "2026-10-22");
+    expect(habitState(s.get<Habit>(h.id)!, "2026-10-22").label).toBe("2 of 3 today");
+    expect(streak(s.get<Habit>(h.id)!, "2026-10-22").current).toBe(0); // partial day: not yet
+    holdCheckIn(s, h.id, "2026-10-22");
+    let x = s.get<Habit>(h.id)!;
+    expect(habitState(x, "2026-10-22")).toMatchObject({ doneToday: true, label: "Done today", today: { count: 3, target: 3 } });
+    expect(streak(x, "2026-10-22").current).toBe(1);
+    // a partial day breaks the streak once it is over
+    addCheckIn(s, h.id, "2026-10-23");
+    x = s.get<Habit>(h.id)!;
+    expect(streak(x, "2026-10-24").current).toBe(0);
+    expect(historyGrid(x, "2026-10-23", 1)[0][4]).toMatchObject({ partial: true, done: false });
+    // holding a completed day resets it
+    expect(holdCheckIn(s, h.id, "2026-10-22")).toEqual({ before: 3, after: 0 });
+  });
+
+  it("same-day check-ins from two offline devices add up", async () => {
+    const recs = new Map<string, Rec>();
+    let seq = 0;
+    const seqs = new Map<string, number>();
+    const server = async (req: SyncRequest): Promise<SyncResponse> => {
+      for (const r of req.changes) {
+        const { rec, changed } = mergeRec(recs.get(r.id), r);
+        if (changed) { recs.set(r.id, rec); seqs.set(r.id, ++seq); }
+      }
+      return { seq, changes: [...recs.values()].filter((r) => seqs.get(r.id)! > req.since), more: false };
+    };
+    const a = await mk();
+    const b = await mk();
+    const h = createHabit(a, "Water", { type: "daily" }, "W", 8);
+    await a.sync(server);
+    await b.sync(server);
+    addCheckIn(a, h.id, T); addCheckIn(a, h.id, T);
+    addCheckIn(b, h.id, T); addCheckIn(b, h.id, T); addCheckIn(b, h.id, T);
+    await a.sync(server); await b.sync(server); await a.sync(server);
+    expect(countOn(a.get<Habit>(h.id)!, T)).toBe(5);
+    expect(countOn(b.get<Habit>(h.id)!, T)).toBe(5);
+  });
+
   it("check-ins made offline on two devices both survive the merge", async () => {
     const recs = new Map<string, Rec>();
     let seq = 0;
@@ -100,8 +144,8 @@ describe("habits", () => {
     await a.sync(server);
     for (const st of [a, b]) {
       const x = st.get<Habit>(h.id)!;
-      expect((x as any)["d:2026-10-21"]).toBe(1);
-      expect((x as any)["d:2026-10-22"]).toBe(1);
+      expect(countOn(x, "2026-10-21")).toBe(1);
+      expect(countOn(x, "2026-10-22")).toBe(1);
     }
   });
 });

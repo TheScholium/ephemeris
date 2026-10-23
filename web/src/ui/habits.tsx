@@ -3,8 +3,8 @@
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
-  createHabit, defaultGlyph, describeSchedule, habitState, habitStats, historyGrid, isDone, longDate, MONTH_NAMES,
-  parseISO, setDone, streak, toggleDone, type Habit, type HabitSchedule,
+  createHabit, defaultGlyph, describeHabit, describeSchedule, habitState, habitStats, historyGrid, holdCheckIn, isDone,
+  longDate, MONTH_NAMES, parseISO, perDayOf, setCount, setDone, streak, type Habit, type HabitSchedule,
 } from "@ephemeris/core";
 import { Icon } from "./icons";
 import { isWide, showToast, store, today, useAtom, useStore } from "../state";
@@ -16,14 +16,18 @@ const C = 2 * Math.PI * R;
 function Ring({ h, td, holding }: { h: Habit; td: string; holding: boolean }) {
   const st = habitState(h, td, store.settings.weekStart);
   const s = h.schedule;
-  const segs = st.progress && st.progress.target <= 12 ? st.progress.target : 0;
-  const gap = segs > 1 ? 7 : 0;
+  // weekly/monthly habits: one segment per required day; others: one per check-in today
+  const unitSegs = st.progress ? st.progress.target : st.today.target;
+  const segs = unitSegs <= 24 ? unitSegs : 0;
+  const gap = segs > 1 ? (segs > 12 ? 4 : 7) : 0;
   const seg = segs ? C / segs - gap : C;
-  const done = st.progress ? Math.min(st.progress.done, st.progress.target) : st.doneToday ? 1 : 0;
+  const done = st.progress
+    ? Math.min(st.progress.done, st.progress.target)
+    : st.today.target > 1 ? Math.min(st.today.count, st.today.target) : st.doneToday ? 1 : 0;
   const track = segs > 1 ? `${seg} ${gap}` : undefined;
   const prog = segs > 1
     ? Array.from({ length: done }, () => `${seg} ${gap}`).join(" ") + ` 0 ${C}`
-    : `${done ? C : 0} ${C}`;
+    : segs === 0 && unitSegs > 1 ? `${(done / unitSegs) * C} ${C}` : `${done ? C : 0} ${C}`;
   const resting = !st.due && !st.doneToday;
   void s;
   return (
@@ -49,9 +53,16 @@ function Cell({ h, onOpen }: { h: Habit; onOpen: () => void }) {
   const sk = streak(h, td, ws);
 
   const complete = () => {
-    const now = toggleDone(store, h.id, td);
-    navigator.vibrate?.(now ? 18 : 8);
-    showToast(now ? `${h.name}: done` : `${h.name}: marked not done`, () => setDone(store, h.id, td, !now));
+    const k = perDayOf(h);
+    const { before, after } = holdCheckIn(store, h.id, td);
+    const undo = () => setCount(store, h.id, td, before);
+    if (after > before) {
+      navigator.vibrate?.(after >= k ? 18 : 10);
+      showToast(after >= k ? `${h.name}: done` : `${h.name}: ${after} of ${k} today`, undo);
+    } else {
+      navigator.vibrate?.(8);
+      showToast(`${h.name}: today reset`, undo);
+    }
   };
   const down = (e: PointerEvent) => {
     if (e.button !== 0) return;
@@ -80,7 +91,7 @@ function Cell({ h, onOpen }: { h: Habit; onOpen: () => void }) {
     <div class="hcell">
       <button
         class="hbtn"
-        aria-label={`${h.name}. ${st.label}. Press and hold to ${st.doneToday ? "undo" : "mark done"}; tap for details.`}
+        aria-label={`${h.name}. ${st.label}. Press and hold to ${st.doneToday ? "reset today" : st.today.target > 1 ? "add a check-in" : "mark done"}; tap for details.`}
         aria-pressed={st.doneToday}
         onPointerDown={down}
         onPointerUp={up}
@@ -243,7 +254,7 @@ function HabitDetail({ id, onClose }: { id: string | null; onClose: () => void }
   useStore();
   const wide = useAtom(isWide);
   const h = id ? store.get<Habit>(id) : null;
-  const [draft, setDraft] = useState<{ name: string; glyph: string; schedule: HabitSchedule }>({ name: "", glyph: "", schedule: { type: "daily" } });
+  const [draft, setDraft] = useState<{ name: string; glyph: string; schedule: HabitSchedule; perDay: number }>({ name: "", glyph: "", schedule: { type: "daily" }, perDay: 1 });
   const nameRef = useRef<HTMLInputElement>(null);
   const td = today();
   const ws = store.settings.weekStart;
@@ -258,7 +269,8 @@ function HabitDetail({ id, onClose }: { id: string | null; onClose: () => void }
   const name = h ? h.name : draft.name;
   const glyph = h ? h.glyph : draft.glyph;
   const schedule = h ? h.schedule : draft.schedule;
-  const set = (patch: Partial<{ name: string; glyph: string; schedule: HabitSchedule }>) => {
+  const perDay = h ? perDayOf(h) : draft.perDay;
+  const set = (patch: Partial<{ name: string; glyph: string; schedule: HabitSchedule; perDay: number }>) => {
     if (h) store.update<Habit>(h.id, patch as Partial<Habit>);
     else setDraft({ ...draft, ...patch });
   };
@@ -267,7 +279,7 @@ function HabitDetail({ id, onClose }: { id: string | null; onClose: () => void }
     <div class="sheet-bg" onClick={onClose}>
       <div class={`sheet hsheet ${wide ? "dialog" : ""}`} role="dialog" aria-label={h ? h.name : "New habit"} onClick={(e) => e.stopPropagation()}>
         <div class="dt-top">
-          <span class="dim small">{h ? describeSchedule(h.schedule) : "New habit"}</span>
+          <span class="dim small">{h ? describeHabit(h) : "New habit"}</span>
           <button class="icon-btn" aria-label="Close" onClick={onClose}><Icon name="x" /></button>
         </div>
 
@@ -286,12 +298,19 @@ function HabitDetail({ id, onClose }: { id: string | null; onClose: () => void }
         <div class="dt-field">
           <div class="dt-label"><Icon name="repeat" /> How often</div>
           <ScheduleEditor s={schedule} onChange={(schedule) => set({ schedule })} />
+          <label class="inline hperday">
+            <input id="habit-perday" class="num" type="number" min={1} max={50} value={perDay}
+              onChange={(e) => set({ perDay: Math.max(1, Math.min(50, Math.floor(Number(e.currentTarget.value) || 1))) })} />
+            {perDay === 1 ? "time a day" : "times a day"}
+          </label>
+          {perDay > 1 && <p class="dim small">A day counts for the streak when you reach {perDay}. Each press and hold adds one.</p>}
         </div>
+        {h && perDay > 1 && <TodayCount h={h} td={td} />}
 
         {h ? <HabitHistory h={h} td={td} ws={ws} /> : (
           <div class="dt-actions">
             <button class="btn primary" disabled={!draft.name.trim()} onClick={() => {
-              createHabit(store, draft.name, draft.schedule, draft.glyph || undefined);
+              createHabit(store, draft.name, draft.schedule, draft.glyph || undefined, draft.perDay);
               showToast(`Added ${draft.name.trim()}`);
               onClose();
             }}>Add habit</button>
@@ -334,7 +353,7 @@ function HabitHistory({ h, td, ws }: { h: Habit; td: string; ws: number }) {
         <div><b>{sk.current}</b><span>current streak, {unit(sk.current)}</span></div>
         <div><b>{sk.best}</b><span>best streak</span></div>
         <div><b>{Math.round(stats.rate30 * 100)}%</b><span>last 30 days</span></div>
-        <div><b>{stats.total}</b><span>check-ins</span></div>
+        <div><b>{stats.total}</b><span>days done</span></div>
       </div>
       <div class="dt-field">
         <div class="dt-label"><Icon name="calendar" /> History <span class="dim small">tap a day to change it</span></div>
@@ -357,8 +376,8 @@ function HabitHistory({ h, td, ws }: { h: Habit; td: string; ws: number }) {
                   if (c.future) return <span class="hday future" />;
                   return (
                     <button
-                      class={`hday ${c.done ? "done" : ""} ${c.scheduled ? "" : "rest"} ${c.date === td ? "today" : ""}`}
-                      aria-label={`${longDate(c.date)}: ${c.done ? "done" : "not done"}`}
+                      class={`hday ${c.done ? "done" : c.partial ? "partial" : ""} ${c.scheduled ? "" : "rest"} ${c.date === td ? "today" : ""}`}
+                      aria-label={`${longDate(c.date)}: ${c.done ? "done" : c.partial ? "partly done" : "not done"}`}
                       aria-pressed={c.done}
                       onClick={() => setDone(store, h.id, c.date, !isDone(h, c.date))}
                     />
@@ -370,5 +389,22 @@ function HabitHistory({ h, td, ws }: { h: Habit; td: string; ws: number }) {
         </div>
       </div>
     </>
+  );
+}
+
+function TodayCount({ h, td }: { h: Habit; td: string }) {
+  const st = habitState(h, td, store.settings.weekStart);
+  const { count, target } = st.today;
+  return (
+    <div class="dt-field htoday">
+      <div class="dt-label"><Icon name="habit" /> Today</div>
+      <div class="row-ctl">
+        <button class="icon-btn hstep" aria-label="Remove one check-in" disabled={count === 0}
+          onClick={() => setCount(store, h.id, td, count - 1)}>−</button>
+        <span class="hcount"><b>{count}</b> of {target}</span>
+        <button class="icon-btn hstep" aria-label="Add one check-in"
+          onClick={() => setCount(store, h.id, td, count + 1)}>+</button>
+      </div>
+    </div>
   );
 }

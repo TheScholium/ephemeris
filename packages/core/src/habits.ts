@@ -12,16 +12,32 @@ import { randomId } from "./sync";
 import type { Habit, HabitSchedule } from "./types";
 
 export const dayKey = (d: ISODate) => `d:${d}` as const;
-export const isDone = (h: Habit, d: ISODate) => (h as any)[dayKey(d)] === 1;
+export const perDayOf = (h: Habit) => Math.max(1, Math.floor(h.perDay ?? 1));
 
-/** All done dates, ascending. */
-export function doneDates(h: Habit): ISODate[] {
-  const out: ISODate[] = [];
-  for (const k of Object.keys(h)) if (k.startsWith("d:") && (h as any)[k] === 1) out.push(k.slice(2));
-  return out.sort();
+/** Every field that holds a count for this day (the legacy whole-day field and one per device). */
+function dayFields(h: Habit, d: ISODate): string[] {
+  const k = dayKey(d);
+  return Object.keys(h).filter((f) => f === k || f.startsWith(k + ":"));
 }
 
-export function createHabit(store: Store, name: string, schedule: HabitSchedule = { type: "daily" }, glyph?: string): Habit {
+/** Check-ins recorded for a day, summed over devices. */
+export function countOn(h: Habit, d: ISODate): number {
+  let n = 0;
+  for (const f of dayFields(h, d)) n += Math.max(0, Number((h as any)[f]) || 0);
+  return n;
+}
+
+/** The day met the habit's daily target. */
+export const isDone = (h: Habit, d: ISODate) => countOn(h, d) >= perDayOf(h);
+
+/** All dates with a met target, ascending. */
+export function doneDates(h: Habit): ISODate[] {
+  const days = new Set<string>();
+  for (const k of Object.keys(h)) if (k.startsWith("d:")) days.add(k.slice(2, 12));
+  return [...days].filter((d) => isDone(h, d)).sort();
+}
+
+export function createHabit(store: Store, name: string, schedule: HabitSchedule = { type: "daily" }, glyph?: string, perDay = 1): Habit {
   const hs = store.habits;
   const order = (hs[hs.length - 1]?.order ?? 0) + 1;
   return store.insert<Habit>({
@@ -32,6 +48,7 @@ export function createHabit(store: Store, name: string, schedule: HabitSchedule 
     name: name.trim() || "Habit",
     glyph: (glyph ?? defaultGlyph(name)).slice(0, 2),
     schedule,
+    perDay: Math.max(1, Math.floor(perDay)),
     order,
     archived: false,
     deleted: false,
@@ -43,8 +60,44 @@ export function defaultGlyph(name: string): string {
   return (w[0]?.[0] ?? "H").toUpperCase();
 }
 
+/** Set a day's total count: this device's field gets n, every other field for the day 0. */
+export function setCount(store: Store, id: string, d: ISODate, n: number) {
+  const h = store.get<Habit>(id);
+  if (!h) return;
+  const patch: Record<string, number> = {};
+  for (const f of dayFields(h, d)) patch[f] = 0;
+  patch[`${dayKey(d)}:${store.meta.node}`] = Math.max(0, Math.floor(n));
+  store.update<Habit>(id, patch as Partial<Habit>);
+}
+
+/** Add one check-in from this device. Returns the day's new total. */
+export function addCheckIn(store: Store, id: string, d: ISODate): number {
+  const h = store.get<Habit>(id);
+  if (!h) return 0;
+  const own = `${dayKey(d)}:${store.meta.node}`;
+  store.update<Habit>(id, { [own]: (Number((h as any)[own]) || 0) + 1 } as Partial<Habit>);
+  return countOn(store.get<Habit>(id)!, d);
+}
+
+/** Mark a whole day done (its full daily target) or not done. */
 export function setDone(store: Store, id: string, d: ISODate, done: boolean) {
-  store.update<Habit>(id, { [dayKey(d)]: done ? 1 : 0 } as Partial<Habit>);
+  const h = store.get<Habit>(id);
+  if (h) setCount(store, id, d, done ? perDayOf(h) : 0);
+}
+
+/**
+ * The ring's press-and-hold: add one check-in until today's target is met; once met,
+ * the next hold resets the day to 0. Returns the previous count (for undo) and the new one.
+ */
+export function holdCheckIn(store: Store, id: string, d: ISODate): { before: number; after: number } {
+  const h = store.get<Habit>(id);
+  if (!h) return { before: 0, after: 0 };
+  const before = countOn(h, d);
+  if (before >= perDayOf(h)) {
+    setCount(store, id, d, 0);
+    return { before, after: 0 };
+  }
+  return { before, after: addCheckIn(store, id, d) };
 }
 
 export function toggleDone(store: Store, id: string, d: ISODate): boolean {
@@ -74,6 +127,7 @@ const target = (s: HabitSchedule) => Math.max(1, Math.floor(s.n ?? 1));
 const scheduledDay = (s: HabitSchedule, d: ISODate) =>
   s.type !== "days" || !s.days?.length || s.days.includes(weekday(d));
 
+/** Days with a met target in [from, toExcl). */
 function countIn(h: Habit, from: ISODate, toExcl: ISODate): number {
   let n = 0;
   for (let d = from; d < toExcl; d = addDays(d, 1)) if (isDone(h, d)) n++;
@@ -82,6 +136,8 @@ function countIn(h: Habit, from: ISODate, toExcl: ISODate): number {
 
 export interface HabitState {
   doneToday: boolean;
+  /** check-ins today and the daily target */
+  today: { count: number; target: number };
   /** for week/month: done so far and target in the current period */
   progress: { done: number; target: number } | null;
   /** due today (or still needed in this period) */
@@ -95,6 +151,19 @@ export interface HabitState {
 export function habitState(h: Habit, today: ISODate, weekStart = 1): HabitState {
   const s = h.schedule;
   const doneToday = isDone(h, today);
+  const k = perDayOf(h);
+  const day = { count: countOn(h, today), target: k };
+  const st = habitStateBase(h, today, weekStart, doneToday);
+  if (k > 1) {
+    const c = Math.min(day.count, k);
+    if (s.type === "week" || s.type === "month") st.label = `${st.label}, ${c} of ${k} today`;
+    else if (!doneToday && (st.due || day.count > 0)) st.label = `${c} of ${k} today`;
+  }
+  return { ...st, today: day };
+}
+
+function habitStateBase(h: Habit, today: ISODate, weekStart: number, doneToday: boolean): Omit<HabitState, "today"> {
+  const s = h.schedule;
   if (s.type === "week" || s.type === "month") {
     const start = periodStart(s, today, weekStart);
     const done = countIn(h, start, addDays(today, 1));
@@ -205,6 +274,12 @@ export function habitStats(h: Habit, today: ISODate, weekStart = 1): HabitStats 
   return { total: dates.length, rate30: needed > 0 ? Math.min(1, done / needed) : 0, since };
 }
 
+export function describeHabit(h: Habit): string {
+  const k = perDayOf(h);
+  const base = describeSchedule(h.schedule);
+  return k > 1 ? `${base}, ${k} times a day` : base;
+}
+
 export function describeSchedule(s: HabitSchedule): string {
   const n = target(s);
   const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -221,12 +296,13 @@ export function describeSchedule(s: HabitSchedule): string {
 export function historyGrid(h: Habit, today: ISODate, weeks: number, weekStart = 1) {
   const end = addDays(startOfWeek(today, weekStart), 6);
   const start = addDays(end, -(weeks * 7) + 1);
-  const cols: { date: ISODate; done: boolean; future: boolean; scheduled: boolean }[][] = [];
+  const cols: { date: ISODate; done: boolean; partial: boolean; future: boolean; scheduled: boolean }[][] = [];
   for (let w = 0; w < weeks; w++) {
     const col = [];
     for (let i = 0; i < 7; i++) {
       const d = fromDayNum(dayNum(start) + w * 7 + i);
-      col.push({ date: d, done: isDone(h, d), future: d > today, scheduled: scheduledDay(h.schedule, d) });
+      const c = countOn(h, d);
+      col.push({ date: d, done: c >= perDayOf(h), partial: c > 0 && c < perDayOf(h), future: d > today, scheduled: scheduledDay(h.schedule, d) });
     }
     cols.push(col);
   }

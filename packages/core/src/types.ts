@@ -152,9 +152,9 @@ export interface HabitSchedule {
 }
 
 /**
- * A habit. Check-ins are stored as one field per day, `d:YYYY-MM-DD` = 1 (done) or 0
- * (undone), so each day merges on its own clock and offline check-ins on two devices
- * never overwrite each other.
+ * A habit. Check-ins are counts stored per day AND per device: `d:YYYY-MM-DD:<device>` = n
+ * (older records may also hold `d:YYYY-MM-DD` = 1). A day's count is the sum of its fields,
+ * so check-ins made offline on two devices, even on the same day, all survive a merge.
  */
 export interface Habit extends Base {
   kind: "habit";
@@ -162,6 +162,8 @@ export interface Habit extends Base {
   /** one or two characters shown in the circle */
   glyph: string;
   schedule: HabitSchedule;
+  /** check-ins needed for a day to count (default 1) */
+  perDay?: number;
   order: number;
   archived: boolean;
   [day: `d:${string}`]: number;

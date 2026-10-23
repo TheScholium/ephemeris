@@ -550,3 +550,9 @@ mark.hl-tag, mark.hl-project, mark.hl-star { color: var(--brass-hi); }
 .hday.today { box-shadow: 0 0 0 2px var(--night), 0 0 0 3px var(--dim); }
 .hday.future { border-color: transparent; }
 button.hday:hover { border-color: var(--brass); }
+.hperday { margin-top: 10px; }
+.hday.partial { border-color: var(--brass); background: linear-gradient(to top, var(--brass) 50%, transparent 50%); }
+.hstep { width: 40px; height: 40px; border: 1px solid var(--rule-2); border-radius: 50%; font-size: 20px; color: var(--ink); }
+.hstep:disabled { opacity: .35; }
+.hcount { min-width: 90px; text-align: center; color: var(--dim); }
+.hcount b { font-weight: 400; font-size: 26px; color: var(--brass-hi); margin-right: 4px; font-variant-numeric: lining-nums tabular-nums; }
