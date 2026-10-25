@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
-import { describeRule, fmtDuration, fmtTime12, parseTask, quickAdd, relDate, type Task } from "@ephemeris/core";
+import { describeRule, fmtDuration, fmtTime12, parseTask, quickAdd, relDate, tagTraitsOf, type Task, type Trait } from "@ephemeris/core";
 import { Icon } from "./icons";
+import { TraitChips } from "./traits";
 import { parseCtx, showToast, store, today } from "../state";
 
 export const quickAddFocus = { fn: null as null | (() => void) };
@@ -10,6 +11,7 @@ export function QuickAdd({ defaults = {}, placeholder, autoFocus, onAdded }: {
 }) {
   const [text, setText] = useState("");
   const [help, setHelp] = useState(false);
+  const [traits, setTraits] = useState<Trait[]>([]);
   const ta = useRef<HTMLTextAreaElement>(null);
   const parsed = text.trim() ? parseTask(text, parseCtx(), store.projects.map((p) => p.name)) : null;
 
@@ -29,8 +31,9 @@ export function QuickAdd({ defaults = {}, placeholder, autoFocus, onAdded }: {
 
   const submit = () => {
     if (!text.trim()) return;
-    const t = quickAdd(store, text, parseCtx(), defaults);
+    const t = quickAdd(store, text, parseCtx(), { ...defaults, ...(traits.length ? { traits } : {}) });
     setText("");
+    setTraits([]);
     const when = t.planned ? `planned ${relDate(t.planned, today())}` : t.due ? `due ${relDate(t.due, today())}` : "added to Inbox";
     showToast(`${t.title}: ${when}`);
     onAdded?.(t);
@@ -88,6 +91,11 @@ export function QuickAdd({ defaults = {}, placeholder, autoFocus, onAdded }: {
           {parsed.reminders.length > 0 && <span class="qp"><Icon name="bell" size={12} />{parsed.reminders.map((r) => (r.offset ? fmtDuration(r.offset) + " before" : "at time")).join(", ")}</span>}
           {parsed.starred && <span class="qp"><Icon name="star" size={12} />starred</span>}
           {!parsed.planned && !parsed.due && defaults.planned && <span class="qp plan dim"><Icon name="plan" size={12} />{relDate(defaults.planned, td)}</span>}
+        </div>
+      )}
+      {parsed && (
+        <div class="qa-traits">
+          <TraitChips small value={traits} locked={tagTraitsOf([...parsed.tags, ...(defaults.tags ?? [])], store.settings)} onChange={setTraits} />
         </div>
       )}
       {help && <SyntaxHelp onClose={() => setHelp(false)} />}

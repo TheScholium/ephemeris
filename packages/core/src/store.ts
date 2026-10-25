@@ -4,7 +4,7 @@
 
 import { localTZ } from "./dates";
 import { HLC, mergeRec, maxClock, randomId, stamp, stampAll, type SyncRequest, type SyncResponse } from "./sync";
-import { SETTINGS_ID, type Habit, type Project, type Rec, type Settings, type Space, type Task } from "./types";
+import { SETTINGS_ID, type GameEvent, type Habit, type Project, type Rec, type Settings, type Space, type Task } from "./types";
 
 export interface StoreMeta {
   node: string;
@@ -43,6 +43,7 @@ export function defaultSettings(): Settings {
     feeds: [],
     dayStart: "07:00",
     dayEnd: "23:00",
+    tagTraits: {},
   };
   for (const k of Object.keys(s)) if (!["id", "kind", "_c"].includes(k)) s._c[k] = ZERO;
   // The device's own time zone is a weak default: it reaches a server that has none,
@@ -100,6 +101,11 @@ export class Store {
     return [...this.recs.values()]
       .filter((r): r is Habit => r.kind === "habit" && !r.deleted)
       .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  }
+  get events(): GameEvent[] {
+    const out: GameEvent[] = [];
+    for (const r of this.recs.values()) if (r.kind === "event" && !r.deleted) out.push(r);
+    return out;
   }
   get spaces(): Space[] {
     return [...this.recs.values()]

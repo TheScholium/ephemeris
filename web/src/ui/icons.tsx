@@ -39,6 +39,7 @@ const P: Record<string, string> = {
   space: "M8 2l5.5 3L8 8 2.5 5zM2.5 8L8 11l5.5-3M2.5 11L8 14l5.5-3",
   file: "M4 2.5h5l3 3v8H4zM9 2.5v3h3",
   up: "M3.5 10L8 5.5l4.5 4.5",
+  sheet: "M8 2.2l1.6 3.3 3.6.5-2.6 2.5.6 3.6L8 10.4l-3.2 1.7.6-3.6L2.8 6l3.6-.5zM4 14h8",
 };
 
 export function Icon({ name, size = 16, class: cls, title }: { name: keyof typeof P | string; size?: number; class?: string; title?: string }): JSX.Element {

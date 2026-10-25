@@ -1,12 +1,13 @@
-// Habits: a Streaks-style grid of rings, kept apart from tasks.
+// Rituals (called habits in the data): a Streaks-style grid of rings, kept apart from tasks.
 // Press and hold a ring to check today off (or to undo); a short tap opens the habit.
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   createHabit, defaultGlyph, describeHabit, describeSchedule, habitState, habitStats, historyGrid, holdCheckIn, isDone,
-  longDate, MONTH_NAMES, parseISO, perDayOf, setCount, setDone, streak, type Habit, type HabitSchedule,
+  longDate, MONTH_NAMES, parseISO, perDayOf, setCount, setDone, streak, type Habit, type HabitSchedule, type Trait,
 } from "@ephemeris/core";
 import { Icon } from "./icons";
+import { TraitChips } from "./traits";
 import { isWide, showToast, store, today, useAtom, useStore } from "../state";
 
 const HOLD_MS = 600;
@@ -136,12 +137,12 @@ export function HabitsView() {
   return (
     <div class="view habits">
       <header class="vh">
-        <h1>Habits</h1>
+        <h1>Rituals</h1>
         <div class="vh-sub">{longDate(td)}{active.length ? `, ${dueCount ? `${dueCount} still due` : "all done for now"}` : ""}</div>
       </header>
 
       {active.length === 0 && (
-        <p class="empty">Add a habit with the + button, then press and hold its ring to check it off each day.</p>
+        <p class="empty">Add a ritual with the + button, then press and hold its ring to check it off each day.</p>
       )}
 
       <div class="hgrid">
@@ -153,7 +154,7 @@ export function HabitsView() {
       {archived.length > 0 && (
         <div class="more">
           <button class="link-btn" onClick={() => setShowArchived(!showArchived)}>
-            {showArchived ? "Hide" : "Show"} archived habits ({archived.length})
+            {showArchived ? "Hide" : "Show"} archived rituals ({archived.length})
           </button>
           {showArchived && (
             <ul class="harch">
@@ -169,7 +170,7 @@ export function HabitsView() {
       )}
 
       {wide && (
-        <button class="hfab" aria-label="New habit" title="New habit" onClick={() => setOpen("new")}>
+        <button class="hfab" aria-label="New ritual" title="New ritual" onClick={() => setOpen("new")}>
           <Icon name="plus" size={20} />
         </button>
       )}
@@ -252,7 +253,7 @@ function HabitDetail({ id, onClose }: { id: string | null; onClose: () => void }
   useStore();
   const wide = useAtom(isWide);
   const h = id ? store.get<Habit>(id) : null;
-  const [draft, setDraft] = useState<{ name: string; glyph: string; schedule: HabitSchedule; perDay: number }>({ name: "", glyph: "", schedule: { type: "daily" }, perDay: 1 });
+  const [draft, setDraft] = useState<{ name: string; glyph: string; schedule: HabitSchedule; perDay: number; traits: Trait[] }>({ name: "", glyph: "", schedule: { type: "daily" }, perDay: 1, traits: [] });
   const nameRef = useRef<HTMLInputElement>(null);
   const td = today();
   const ws = store.settings.weekStart;
@@ -268,16 +269,17 @@ function HabitDetail({ id, onClose }: { id: string | null; onClose: () => void }
   const glyph = h ? h.glyph : draft.glyph;
   const schedule = h ? h.schedule : draft.schedule;
   const perDay = h ? perDayOf(h) : draft.perDay;
-  const set = (patch: Partial<{ name: string; glyph: string; schedule: HabitSchedule; perDay: number }>) => {
+  const traits: Trait[] = h ? (h.traits ?? []) : draft.traits;
+  const set = (patch: Partial<{ name: string; glyph: string; schedule: HabitSchedule; perDay: number; traits: Trait[] }>) => {
     if (h) store.update<Habit>(h.id, patch as Partial<Habit>);
     else setDraft({ ...draft, ...patch });
   };
 
   return (
     <div class="sheet-bg" onClick={onClose}>
-      <div class={`sheet hsheet ${wide ? "dialog" : ""}`} role="dialog" aria-label={h ? h.name : "New habit"} onClick={(e) => e.stopPropagation()}>
+      <div class={`sheet hsheet ${wide ? "dialog" : ""}`} role="dialog" aria-label={h ? h.name : "New ritual"} onClick={(e) => e.stopPropagation()}>
         <div class="dt-top">
-          <span class="dim small">{h ? describeHabit(h) : "New habit"}</span>
+          <span class="dim small">{h ? describeHabit(h) : "New ritual"}</span>
           <button class="icon-btn" aria-label="Close" onClick={onClose}><Icon name="x" /></button>
         </div>
 
@@ -285,7 +287,7 @@ function HabitDetail({ id, onClose }: { id: string | null; onClose: () => void }
           <input id="habit-glyph" class="hglyph-in" value={glyph} maxLength={2} aria-label="Letter in the ring"
             placeholder={defaultGlyph(name || "H")}
             onInput={(e) => set({ glyph: e.currentTarget.value.slice(0, 2) })} />
-          <input id="habit-name" ref={nameRef} class="hname-in" value={name} placeholder="Read 20 pages" aria-label="Habit name"
+          <input id="habit-name" ref={nameRef} class="hname-in" value={name} placeholder="Read 20 pages" aria-label="Ritual name"
             onInput={(e) => {
               const v = e.currentTarget.value;
               if (h) set({ name: v || h.name });
@@ -305,13 +307,19 @@ function HabitDetail({ id, onClose }: { id: string | null; onClose: () => void }
         </div>
         {h && perDay > 1 && <TodayCount h={h} td={td} />}
 
+        <div class="dt-field">
+          <div class="dt-label"><Icon name="sheet" /> Traits</div>
+          <TraitChips value={traits} onChange={(traits) => set({ traits })} />
+          <p class="dim small">{traits.length ? "Each check-in trains these traits." : "Each check-in trains Presentation unless you pick traits."}</p>
+        </div>
+
         {h ? <HabitHistory h={h} td={td} ws={ws} /> : (
           <div class="dt-actions">
             <button class="btn primary" disabled={!draft.name.trim()} onClick={() => {
-              createHabit(store, draft.name, draft.schedule, draft.glyph || undefined, draft.perDay);
+              createHabit(store, draft.name, draft.schedule, draft.glyph || undefined, draft.perDay, draft.traits);
               showToast(`Added ${draft.name.trim()}`);
               onClose();
-            }}>Add habit</button>
+            }}>Add ritual</button>
             <button class="btn" onClick={onClose}>Cancel</button>
           </div>
         )}

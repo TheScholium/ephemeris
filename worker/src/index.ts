@@ -31,7 +31,7 @@ export interface Env {
   VAPID_SUBJECT: string;
 }
 
-const KINDS = new Set(["task", "project", "space", "settings", "habit"]);
+const KINDS = new Set(["task", "project", "space", "settings", "habit", "event"]);
 const PULL_LIMIT = 500;
 const MAX_FILE = 25 * 1024 * 1024;
 

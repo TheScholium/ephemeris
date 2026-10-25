@@ -572,3 +572,47 @@ button.hday:hover { border-color: var(--brass); }
 .seg button:hover { color: var(--ink); }
 .seg button.on { background: var(--raise); color: var(--brass-hi); }
 .cal-head .row-ctl { flex-wrap: wrap; }
+
+/* ---- Sisyphus: traits and the character sheet ---- */
+:root {
+  --t-peace: #7fae9f;
+  --t-constitution: #c86f76;
+  --t-wisdom: #c9a45c;
+  --t-charisma: #b49ac8;
+  --t-presentation: #8fa8c8;
+}
+.trait-peace { --tc: var(--t-peace); }
+.trait-constitution { --tc: var(--t-constitution); }
+.trait-wisdom { --tc: var(--t-wisdom); }
+.trait-charisma { --tc: var(--t-charisma); }
+.trait-presentation { --tc: var(--t-presentation); }
+
+.trait-chips .chip.on { background: var(--tc); border-color: var(--tc); color: var(--night); }
+.trait-chips .chip.fixed { opacity: .75; cursor: default; }
+.trait-chips.small .chip { font-size: 14px; min-height: 24px; padding: 1px 9px; }
+.qa-traits { padding: 6px 0 2px var(--gutter); }
+.app.narrow .qa-traits { padding-left: 0; }
+
+.trait-line {
+  display: grid; grid-template-columns: 9.5em 3.5em 1fr auto; gap: 10px 14px; align-items: center;
+  padding: 9px 0; border-bottom: 1px solid var(--rule);
+}
+.tl-name { color: var(--tc); font-size: 19px; }
+.tl-level { font-variant-numeric: tabular-nums; color: var(--ink); }
+.tl-xp { white-space: pre; text-align: right; }
+.tbar { height: 6px; background: var(--rule); border-radius: 3px; overflow: hidden; }
+.tbar i { display: block; height: 100%; background: var(--tc); border-radius: 3px; }
+.app.narrow .trait-line { grid-template-columns: 1fr auto; }
+.app.narrow .tbar { grid-column: 1 / -1; order: 3; }
+.app.narrow .tl-xp { grid-column: 1 / -1; order: 4; text-align: left; }
+
+.sh-h { font-size: 22px; font-weight: 500; margin: 30px 0 8px; color: var(--brass); }
+.sh-empty { padding-left: 0; }
+.recent { list-style: none; margin: 0; padding: 0; }
+.recent li { display: grid; grid-template-columns: 6.5em 1fr auto 3em auto; gap: 12px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--rule); }
+.r-xp { color: var(--brass-hi); font-variant-numeric: tabular-nums; text-align: right; }
+.r-traits { display: inline-flex; gap: 4px; }
+.dot-trait { width: 9px; height: 9px; border-radius: 50%; background: var(--tc); display: inline-block; }
+.tag-traits { display: grid; gap: 10px; margin-top: 12px; }
+.tt-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.tt-tag { color: var(--brass-hi); min-width: 8em; }

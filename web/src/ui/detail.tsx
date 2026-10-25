@@ -2,9 +2,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import {
   addSubtask, describeRule, duplicateTask, fmtDuration, fmtTime12, longDate, parseISO, randomId, relDate,
   setRecurrence, skipOccurrence, subtasksOf, updateTask, weekday, WEEKDAYS, isISODate, planAfterDue,
-  type Attachment, type ISODate, type Recurrence, type Reminder, type Task, type Weekday,
+  tagTraitsOf, type Attachment, type ISODate, type Recurrence, type Reminder, type Task, type Weekday,
 } from "@ephemeris/core";
 import { Icon } from "./icons";
+import { TraitChips } from "./traits";
 import { Check, DateField, ProjectSelect, TagInput, deleteWithUndo } from "./common";
 import { api, apiJSON, connected, openTask, showToast, store, today, useAtom, useStore } from "../state";
 
@@ -99,6 +100,12 @@ function DetailBody({ t }: { t: Task }) {
       <div class="dt-field">
         <div class="dt-label"><Icon name="tag" /> Tags</div>
         <TagInput tags={t.tags} onChange={(tags) => up(t, { tags })} />
+      </div>
+
+      <div class="dt-field">
+        <div class="dt-label"><Icon name="sheet" /> Traits</div>
+        <TraitChips value={t.traits ?? []} locked={tagTraitsOf(t.tags, store.settings)} onChange={(traits) => up(t, { traits })} />
+        <p class="dim small">{(t.traits ?? []).length || tagTraitsOf(t.tags, store.settings).length ? "Finishing this task trains these traits." : "Finishing this task trains Presentation unless you pick traits."}</p>
       </div>
 
       {!t.parentId && (

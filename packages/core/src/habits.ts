@@ -7,9 +7,10 @@
 // The current period never breaks a streak while it can still be met.
 
 import { addDays, addMonths, dayNum, diffDays, fromDayNum, parseISO, startOfWeek, toISO, weekday, type ISODate } from "./dates";
+import { awardRitual, reconcileRitualDay } from "./game";
 import type { Store } from "./store";
 import { randomId } from "./sync";
-import type { Habit, HabitSchedule } from "./types";
+import type { Habit, HabitSchedule, Trait } from "./types";
 
 export const dayKey = (d: ISODate) => `d:${d}` as const;
 export const perDayOf = (h: Habit) => Math.max(1, Math.floor(h.perDay ?? 1));
@@ -37,7 +38,7 @@ export function doneDates(h: Habit): ISODate[] {
   return [...days].filter((d) => isDone(h, d)).sort();
 }
 
-export function createHabit(store: Store, name: string, schedule: HabitSchedule = { type: "daily" }, glyph?: string, perDay = 1): Habit {
+export function createHabit(store: Store, name: string, schedule: HabitSchedule = { type: "daily" }, glyph?: string, perDay = 1, traits: Trait[] = []): Habit {
   const hs = store.habits;
   const order = (hs[hs.length - 1]?.order ?? 0) + 1;
   return store.insert<Habit>({
@@ -49,6 +50,7 @@ export function createHabit(store: Store, name: string, schedule: HabitSchedule 
     glyph: (glyph ?? defaultGlyph(name)).slice(0, 2),
     schedule,
     perDay: Math.max(1, Math.floor(perDay)),
+    traits: [...traits],
     order,
     archived: false,
     deleted: false,
@@ -67,7 +69,10 @@ export function setCount(store: Store, id: string, d: ISODate, n: number) {
   const patch: Record<string, number> = {};
   for (const f of dayFields(h, d)) patch[f] = 0;
   patch[`${dayKey(d)}:${store.meta.node}`] = Math.max(0, Math.floor(n));
-  store.update<Habit>(id, patch as Partial<Habit>);
+  store.batch(() => {
+    store.update<Habit>(id, patch as Partial<Habit>);
+    reconcileRitualDay(store, store.get<Habit>(id)!, d, Math.max(0, Math.floor(n)));
+  });
 }
 
 /** Add one check-in from this device. Returns the day's new total. */
@@ -75,7 +80,11 @@ export function addCheckIn(store: Store, id: string, d: ISODate): number {
   const h = store.get<Habit>(id);
   if (!h) return 0;
   const own = `${dayKey(d)}:${store.meta.node}`;
-  store.update<Habit>(id, { [own]: (Number((h as any)[own]) || 0) + 1 } as Partial<Habit>);
+  const mine = (Number((h as any)[own]) || 0) + 1;
+  store.batch(() => {
+    store.update<Habit>(id, { [own]: mine } as Partial<Habit>);
+    awardRitual(store, store.get<Habit>(id)!, d, mine);
+  });
   return countOn(store.get<Habit>(id)!, d);
 }
 

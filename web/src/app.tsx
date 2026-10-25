@@ -7,6 +7,7 @@ import { BulkBar } from "./ui/bulk";
 import { CalendarView } from "./ui/calendar";
 import { SettingsView } from "./ui/settings";
 import { HabitsView } from "./ui/habits";
+import { SheetView } from "./ui/sheet";
 import {
   BacklogView, InboxView, LogbookView, ProjectView, SearchView, SpaceView, TagView, TagsView, TodayView, UpcomingView,
 } from "./ui/views";
@@ -52,7 +53,8 @@ function Sidebar({ onNav }: { onNav?: () => void }) {
       <NavItem view="upcoming" icon="upcoming" label="Upcoming" onNav={onNav} />
       <NavItem view="calendar" icon="calendar" label="Calendar" onNav={onNav} />
       <NavItem view="inbox" icon="inbox" label="Inbox" count={inbox(store.tasks).length} onNav={onNav} />
-      <NavItem view="habits" icon="habit" label="Habits" onNav={onNav} />
+      <NavItem view="habits" icon="habit" label="Rituals" onNav={onNav} />
+      <NavItem view="sheet" icon="sheet" label="Character" onNav={onNav} />
       <NavItem view="unplanned" icon="plan" label="Unplanned" onNav={onNav} />
       <NavItem view="logbook" icon="log" label="Logbook" onNav={onNav} />
       <NavItem view="search" icon="search" label="Find" onNav={onNav} />
@@ -110,6 +112,7 @@ function Main() {
     case "search": return <SearchView q={r.arg} />;
     case "settings": return <SettingsView />;
     case "habits": return <HabitsView />;
+    case "sheet": return <SheetView />;
     default: return <TodayView />;
   }
 }
@@ -182,6 +185,7 @@ function useKeys() {
         "4": () => go("inbox"),
         "5": () => go("logbook"),
         "6": () => go("habits"),
+        "7": () => go("sheet"),
       };
       const f = map[e.key];
       if (f) {
@@ -236,11 +240,11 @@ export function App() {
         <>
           <nav class="tabbar" aria-label="Main views">
             {[
-              ["today", "today", "Today"], ["upcoming", "upcoming", "Upcoming"], ["calendar", "calendar", "Calendar"], ["habits", "habit", "Habits"],
+              ["today", "today", "Today"], ["upcoming", "upcoming", "Upcoming"], ["calendar", "calendar", "Calendar"], ["habits", "habit", "Rituals"],
             ].map(([v, ic, l]) => (
               <a href={`#/${v}`} class={r.view === v ? "on" : ""} aria-current={r.view === v ? "page" : undefined}><Icon name={ic} size={20} /><span>{l}</span></a>
             ))}
-            <button onClick={() => (r.view === "habits" ? dispatchEvent(new Event("eph:new-habit")) : setSheet(true))} class="tab-add" aria-label={r.view === "habits" ? "New habit" : "New task"}><Icon name="plus" size={22} /></button>
+            <button onClick={() => (r.view === "habits" ? dispatchEvent(new Event("eph:new-habit")) : setSheet(true))} class="tab-add" aria-label={r.view === "habits" ? "New ritual" : "New task"}><Icon name="plus" size={22} /></button>
           </nav>
           {sheet && r.view !== "habits" && (
             <div class="sheet-bg" onClick={() => setSheet(false)}>

@@ -9,3 +9,4 @@ export * from "./query";
 export * from "./alarms";
 export * from "./ics";
 export * from "./habits";
+export * from "./game";

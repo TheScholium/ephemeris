@@ -52,6 +52,12 @@ export interface Attachment {
   size: number;
 }
 
+/** The five traits a completed task or ritual trains. */
+export const TRAITS = ["peace", "constitution", "wisdom", "charisma", "presentation"] as const;
+export type Trait = (typeof TRAITS)[number];
+/** A task or ritual with no trait of its own trains this one. */
+export const DEFAULT_TRAIT: Trait = "presentation";
+
 export type Status = "open" | "done" | "dropped";
 
 interface Base {
@@ -89,6 +95,8 @@ export interface Task extends Base {
   occurrence: number;
   completedAt: string | null;
   starred: boolean;
+  /** Traits trained on completion. Tags mapped in Settings.tagTraits add to these. */
+  traits: Trait[];
 }
 
 export interface Project extends Base {
@@ -135,6 +143,8 @@ export interface Settings extends Base {
   feeds: CalendarFeed[];
   dayStart: HHMM;
   dayEnd: HHMM;
+  /** tag (lower case, no #) -> traits that tag adds to a task */
+  tagTraits: Record<string, Trait[]>;
 }
 
 /**
@@ -166,10 +176,32 @@ export interface Habit extends Base {
   perDay?: number;
   order: number;
   archived: boolean;
+  /** Traits trained by each check-in (empty = DEFAULT_TRAIT). */
+  traits?: Trait[];
   [day: `d:${string}`]: number;
 }
 
-export type Rec = Task | Project | Space | Settings | Habit;
+export type EventSource = "task" | "ritual" | "node" | "boss" | "dungeon" | "ward";
+
+/**
+ * One grant of experience to one trait. Events are append-only: an event is never edited,
+ * only marked deleted when its source is undone. Levels are always computed from events,
+ * so the level curve can change without losing history.
+ */
+export interface GameEvent extends Base {
+  kind: "event";
+  /** ISO time of the action */
+  at: string;
+  /** local day of the action */
+  day: string;
+  trait: Trait;
+  xp: number;
+  source: EventSource;
+  sourceId: string;
+  label: string;
+}
+
+export type Rec = Task | Project | Space | Settings | Habit | GameEvent;
 export type Kind = Rec["kind"];
 
 export const SETTINGS_ID = "settings";
@@ -178,5 +210,5 @@ export const SETTINGS_ID = "settings";
 export const TASK_FIELDS = [
   "title", "notes", "status", "due", "dueTime", "planned", "plannedTime", "estimate",
   "tags", "projectId", "spaceId", "parentId", "order", "links", "location", "attachments",
-  "reminders", "recurrence", "seriesId", "occurrence", "completedAt", "starred", "deleted",
+  "reminders", "recurrence", "seriesId", "occurrence", "completedAt", "starred", "deleted", "traits",
 ] as const;

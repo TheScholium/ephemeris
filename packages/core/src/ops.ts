@@ -5,6 +5,7 @@ import { addDays, diffDays, type ISODate } from "./dates";
 import { parseTask, type ParseContext, type Parsed } from "./nlp";
 import { nextInstanceDates, normalizeRule } from "./recurrence";
 import type { Store } from "./store";
+import { awardTask, revokeEvents } from "./game";
 import { randomId, stableId } from "./sync";
 import type { Project, Recurrence, Space, Task } from "./types";
 
@@ -39,6 +40,7 @@ export function blankTask(init: Partial<Task> = {}): Task {
     occurrence: 1,
     completedAt: null,
     starred: false,
+    traits: [],
     deleted: false,
     ...init,
   };
@@ -149,6 +151,7 @@ export function completeTask(store: Store, id: string, today: ISODate): Task | n
     if (!t || t.status !== "open") return null;
     const now = new Date().toISOString();
     store.update<Task>(id, { status: "done", completedAt: now });
+    awardTask(store, t);
     for (const s of subtasksOf(store, id)) {
       if (s.status === "open") store.update<Task>(s.id, { status: "done", completedAt: now });
     }
@@ -167,7 +170,10 @@ export function skipOccurrence(store: Store, id: string, today: ISODate): Task |
 }
 
 export function reopenTask(store: Store, id: string) {
-  store.update<Task>(id, { status: "open", completedAt: null });
+  store.batch(() => {
+    store.update<Task>(id, { status: "open", completedAt: null });
+    revokeEvents(store, "task", id);
+  });
 }
 
 function spawnNext(store: Store, t: Task, doneOn: ISODate, today: ISODate): Task | null {
@@ -211,9 +217,9 @@ function spawnNext(store: Store, t: Task, doneOn: ISODate, today: ISODate): Task
 
 function pickCopy(t: Task): Partial<Task> {
   const { title, notes, dueTime, plannedTime, estimate, tags, projectId, spaceId, parentId, order,
-    links, location, attachments, reminders, recurrence, starred } = t;
+    links, location, attachments, reminders, recurrence, starred, traits } = t;
   return { title, notes, dueTime, plannedTime, estimate, tags, projectId, spaceId, parentId, order,
-    links, location, attachments, reminders, recurrence, starred };
+    links, location, attachments, reminders, recurrence, starred, traits };
 }
 
 export function deleteTask(store: Store, id: string) {
