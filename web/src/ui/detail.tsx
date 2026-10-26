@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import {
-  addSubtask, describeRule, duplicateTask, fmtDuration, fmtTime12, longDate, parseISO, randomId, relDate,
-  setRecurrence, skipOccurrence, subtasksOf, updateTask, weekday, WEEKDAYS, isISODate, planAfterDue,
+  addSubtask, deleteTask, describeRule, duplicateTask, fmtDuration, fmtTime12, longDate, parseISO, randomId, relDate,
+  scheduleSubtasks, setRecurrence, shareEstimate, skipOccurrence, splitTask, spreadDates, subtasksOf, updateTask,
+  weekday, WEEKDAYS, isISODate, planAfterDue, addDays,
   type Attachment, type ISODate, type Recurrence, type Reminder, type Task, type Weekday,
 } from "@ephemeris/core";
 import { Icon } from "./icons";
@@ -138,6 +139,7 @@ function DetailBody({ t }: { t: Task }) {
           ))}
           <NewLine placeholder="Add subtask" onAdd={(v) => addSubtask(store, t.id, v)} />
         </div>
+        {!t.parentId && t.status === "open" && <SplitPanel t={t} subs={subs} />}
       </div>
 
       <div class="dt-field">
@@ -169,6 +171,106 @@ function DetailBody({ t }: { t: Task }) {
         </div>
       </footer>
     </aside>
+  );
+}
+
+// ---------- split into sections ----------
+
+/** Split a task into sections, each planned on its own day. Sections are subtasks. */
+function SplitPanel({ t, subs }: { t: Task; subs: Task[] }) {
+  const td = today();
+  const openSubs = subs.filter((s) => s.status === "open");
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [parts, setParts] = useState(3);
+  const [start, setStart] = useState<string>(t.planned && t.planned >= td ? t.planned : td);
+  const [end, setEnd] = useState<string>(t.due && t.due >= td ? t.due : "");
+  const [weekends, setWeekends] = useState(false);
+
+  const titles = text.split("\n").map((x) => x.trim()).filter(Boolean);
+  const count = titles.length || Math.max(1, Math.min(30, parts));
+  const first = isISODate(start) ? start : td;
+  const last = isISODate(end) && end >= first ? end : addDays(first, Math.max(0, count - 1));
+  const opts = { start: first, end: last, skipWeekends: !weekends };
+  const dates = spreadDates(count, opts);
+  const est = shareEstimate(t.estimate, count);
+  const shown = titles.length ? titles : Array.from({ length: count }, (_, i) => `Part ${i + 1}`);
+  const lateEnd = !!(t.due && last > t.due);
+
+  const undoFor = (ids: string[], before: Partial<Task>) => () =>
+    store.batch(() => {
+      ids.forEach((id) => deleteTask(store, id));
+      updateTask(store, t.id, before);
+    });
+
+  const doSplit = () => {
+    const before = { planned: t.planned, plannedTime: t.plannedTime };
+    const made = splitTask(store, t.id, shown.map((title) => ({ title })), opts);
+    if (!made.length) return showToast("Could not split this task");
+    showToast(`Split into ${made.length} sections`, undoFor(made.map((m) => m.id), before));
+    setText("");
+    setOpen(false);
+  };
+
+  const doSchedule = () => {
+    const before = openSubs.map((s) => ({ id: s.id, planned: s.planned }));
+    const parentBefore = { planned: t.planned, plannedTime: t.plannedTime };
+    const changed = scheduleSubtasks(store, t.id, opts);
+    if (!changed.length) return;
+    showToast(`Planned ${changed.length} sections`, () =>
+      store.batch(() => {
+        before.forEach((b) => updateTask(store, b.id, { planned: b.planned }));
+        updateTask(store, t.id, parentBefore);
+      }));
+    setOpen(false);
+  };
+
+  if (!open)
+    return (
+      <div class="row-ctl">
+        <button class="btn" onClick={() => setOpen(true)}><Icon name="sub" /> Split into sections</button>
+      </div>
+    );
+
+  return (
+    <div class="split-panel">
+      <p class="dim small">Each section is a subtask with its own planned date. The deadline stays on this task.</p>
+      <textarea class="notes" rows={4} value={text} placeholder={"One section per line, for example:\nOutline\nDraft\nEdit"}
+        aria-label="Section titles" onInput={(e) => setText(e.currentTarget.value)} />
+      <div class="row-ctl wrap">
+        {titles.length === 0 && (
+          <label class="inline">or
+            <input class="num" type="number" min={1} max={30} value={parts} aria-label="Number of sections"
+              onChange={(e) => setParts(Math.max(1, Math.min(30, Math.round(Number(e.currentTarget.value)) || 1)))} />
+            equal parts
+          </label>
+        )}
+        <label class="inline">from
+          <input type="date" value={start} onChange={(e) => isISODate(e.currentTarget.value) && setStart(e.currentTarget.value)} />
+        </label>
+        <label class="inline">to
+          <input type="date" value={end} onChange={(e) => setEnd(isISODate(e.currentTarget.value) ? e.currentTarget.value : "")} />
+        </label>
+        <label class="inline"><input type="checkbox" checked={weekends} onChange={(e) => setWeekends(e.currentTarget.checked)} />
+          include weekends</label>
+      </div>
+      <ol class="split-preview">
+        {shown.map((title, i) => (
+          <li key={i}>
+            <span class="split-title">{title}</span>
+            <span class="dim small">{relDate(dates[i], td)}{est[i] ? `, ${fmtDuration(est[i])}` : ""}</span>
+          </li>
+        ))}
+      </ol>
+      {lateEnd && <p class="warn">The last section is after the deadline ({relDate(t.due!, td)}).</p>}
+      <div class="row-ctl wrap">
+        <button class="btn primary" onClick={doSplit}>Split and plan</button>
+        {openSubs.length > 0 && (
+          <button class="btn" onClick={doSchedule}>Only plan the {openSubs.length} existing subtask{openSubs.length > 1 ? "s" : ""}</button>
+        )}
+        <button class="btn" onClick={() => setOpen(false)}>Cancel</button>
+      </div>
+    </div>
   );
 }
 

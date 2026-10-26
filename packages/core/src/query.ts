@@ -3,6 +3,7 @@
 
 import { addDays, addMonths, diffDays, parseHM, type ISODate } from "./dates";
 import { between } from "./recurrence";
+import { plannedThroughSections } from "./split";
 import type { Task } from "./types";
 
 export const isOpen = (t: Task) => t.status === "open" && !t.deleted;
@@ -45,6 +46,8 @@ export interface TodayView {
 export function todayView(tasks: Task[], today: ISODate, horizon = 7): TodayView {
   const v: TodayView = { overdue: [], planned: [], dueToday: [], carried: [], needsPlan: [], doneToday: [], load: 0, loadDone: 0 };
   const limit = addDays(today, horizon);
+  // a task split into planned sections has its plan in the sections: it does not need its own
+  const sectioned = plannedThroughSections(tasks);
   for (const t of tasks) {
     if (t.deleted) continue;
     if (t.status === "done" && t.completedAt && isSameLocalDay(t.completedAt, today)) {
@@ -57,7 +60,7 @@ export function todayView(tasks: Task[], today: ISODate, horizon = 7): TodayView
     else if (t.planned === today) v.planned.push(t);
     else if (t.due === today) v.dueToday.push(t);
     else if (t.planned && t.planned < today) v.carried.push(t);
-    else if (t.due && t.due <= limit && (!t.planned || t.planned > t.due)) v.needsPlan.push(t);
+    else if (t.due && t.due <= limit && (!t.planned || t.planned > t.due) && !sectioned.has(t.id)) v.needsPlan.push(t);
     if (t.planned && t.planned <= today) v.load += t.estimate ?? 0;
   }
   v.overdue.sort(byDue);
@@ -168,7 +171,8 @@ export function inbox(tasks: Task[]): Task[] {
 
 /** Open tasks with no planned date (planning backlog), deadlines first. */
 export function unplanned(tasks: Task[]): Task[] {
-  return tasks.filter((t) => isOpen(t) && !t.planned && !t.parentId).sort(byDue);
+  const sectioned = plannedThroughSections(tasks);
+  return tasks.filter((t) => isOpen(t) && !t.planned && !t.parentId && !sectioned.has(t.id)).sort(byDue);
 }
 
 export interface Filter {

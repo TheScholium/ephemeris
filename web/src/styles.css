@@ -366,6 +366,12 @@ mark.hl-tag, mark.hl-project, mark.hl-star { color: var(--brass-hi); }
 .newline { width: 100%; background: transparent !important; border: 0 !important; border-bottom: 1px dashed var(--rule-2) !important; border-radius: 0 !important; padding: 4px 0 !important; }
 .notes { width: 100%; resize: vertical; min-height: 60px !important; line-height: 1.45; }
 .subs { display: grid; gap: 2px; }
+.split-panel { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--rule-2); border-radius: 6px; display: grid; gap: 8px; }
+.split-panel .notes { min-height: 84px !important; }
+.split-preview { list-style: decimal; margin: 0; padding-left: 22px; display: grid; gap: 2px; }
+.split-preview li { padding-left: 4px; }
+.split-preview li::marker { color: var(--dim); }
+.split-title { margin-right: 8px; }
 .sub { display: grid; grid-template-columns: 24px 1fr auto auto; gap: 8px; align-items: start; }
 .sub textarea { background: none !important; border: 0 !important; padding: 2px 0 !important; resize: none; overflow: hidden; width: 100%; font-size: 17px; }
 .sub.is-done textarea { color: var(--faint); text-decoration: line-through; }

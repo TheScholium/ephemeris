@@ -5,6 +5,7 @@ export * from "./recurrence";
 export * from "./nlp";
 export * from "./store";
 export * from "./ops";
+export * from "./split";
 export * from "./query";
 export * from "./alarms";
 export * from "./ics";

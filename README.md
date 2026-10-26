@@ -19,6 +19,7 @@ It runs on the Mac and iPhone (one web app that installs to the Dock and the Hom
 | Tags (nested: `#school/phys311`), projects, spaces | yes | shows tags |
 | Edit tags on many tasks at once, filter by tags (any / all) | yes | no |
 | Subtasks (each can have its own dates) | yes | completes with parent |
+| Split a task into sections, each planned on its own day | yes | shows each section on its day |
 | Links, a location (Apple Maps / Google Maps), file attachments | yes | no |
 | Natural-language quick add | yes | yes (same parser) |
 | Calendar view with drag to plan, your own calendars beside tasks | yes | no |
