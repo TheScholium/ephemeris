@@ -496,6 +496,10 @@ mark.hl-tag, mark.hl-project, mark.hl-star { color: var(--brass-hi); }
 .blk.task.ghost { background: transparent; border-style: dashed; cursor: pointer; opacity: .7; }
 .ad.ghost { opacity: .6; border-style: dashed; }
 
+/* checked-off tasks stay on the calendar in a dimmer color */
+.blk.task.done { background: rgba(127, 174, 159, .07); border-color: var(--rule-2); color: var(--faint); cursor: pointer; }
+.ad.done { border-color: var(--rule-2); color: var(--faint); background: none; cursor: pointer; }
+
 /* first-run connection */
 .connect { border: 1px solid var(--brass); border-radius: var(--r); padding: 14px 16px; margin: 0 0 22px; background: rgba(201, 164, 92, .06); display: grid; gap: 10px; }
 .connect h2 { margin: 0; font-size: 21px; font-weight: 500; }

@@ -78,6 +78,8 @@ interface Item {
   task?: Task;
   ev?: CalEvent;
   ghost?: boolean;
+  /** a planned task that is already checked off: stays on the calendar, dimmed */
+  done?: boolean;
   lane?: number;
   lanes?: number;
 }
@@ -168,19 +170,22 @@ export function CalendarView() {
     scroller.current?.scrollTo({ top: Math.max(0, ((now - dayStart) / 60) * HOUR - 120) });
   }, []);
 
-  const tasks = store.tasks.filter((t) => isOpen(t));
+  // checked-off tasks stay where they were planned, dimmed; dropped (skipped) ones go
+  const tasks = store.tasks.filter((t) => isOpen(t) || (t.status === "done" && !t.deleted));
   const timed = new Map<ISODate, Item[]>();
-  const allDay = new Map<ISODate, { kind: "plan" | "due" | "event"; task?: Task; ev?: CalEvent; ghost?: boolean }[]>();
+  const allDay = new Map<ISODate, { kind: "plan" | "due" | "event"; task?: Task; ev?: CalEvent; ghost?: boolean; done?: boolean }[]>();
   days.forEach((d) => {
     timed.set(d, []);
     allDay.set(d, []);
   });
   for (const t of tasks) {
+    const done = t.status === "done";
     if (t.planned && timed.has(t.planned)) {
-      if (t.plannedTime) timed.get(t.planned)!.push({ kind: "task", id: t.id, title: t.title, start: parseHM(t.plannedTime), dur: t.estimate || 30, task: t });
-      else allDay.get(t.planned)!.push({ kind: "plan", task: t });
+      if (t.plannedTime) timed.get(t.planned)!.push({ kind: "task", id: t.id, title: t.title, start: parseHM(t.plannedTime), dur: t.estimate || 30, task: t, done });
+      else allDay.get(t.planned)!.push({ kind: "plan", task: t, done });
     }
-    if (t.due && allDay.has(t.due) && t.due !== t.planned) allDay.get(t.due)!.push({ kind: "due", task: t });
+    // a finished task has no deadline left to warn about
+    if (!done && t.due && allDay.has(t.due) && t.due !== t.planned) allDay.get(t.due)!.push({ kind: "due", task: t });
   }
   for (const g of repeatGhosts(store.tasks, from, to)) {
     const t = g.task;
@@ -210,7 +215,7 @@ export function CalendarView() {
       tray.push(t);
     }
   };
-  days.forEach((d) => allDay.get(d)!.forEach((x) => x.kind === "plan" && x.task && !x.ghost && pushTray(x.task)));
+  days.forEach((d) => allDay.get(d)!.forEach((x) => x.kind === "plan" && x.task && !x.ghost && isOpen(x.task) && pushTray(x.task)));
   [...v.overdue, ...v.dueToday, ...v.carried, ...v.needsPlan].filter((t) => !t.plannedTime || !t.planned || t.planned < td).forEach(pushTray);
 
   // ----- pointer handling -----
@@ -335,7 +340,7 @@ export function CalendarView() {
                 x.kind === "event" ? (
                   <div class="ad ev" style={{ "--c": x.ev!.color } as any} title={x.ev!.calendar}>{x.ev!.title}</div>
                 ) : (
-                  <div class={`ad ${x.kind} ${x.ghost ? "ghost" : ""}`} onPointerDown={(e) => x.ghost ? openTask.set(x.task!.id) : startDrag(e as PointerEvent, { id: x.task!.id, mode: "place" })}>
+                  <div class={`ad ${x.kind} ${x.ghost ? "ghost" : ""} ${x.done ? "done" : ""}`} onPointerDown={(e) => x.ghost || x.done ? openTask.set(x.task!.id) : startDrag(e as PointerEvent, { id: x.task!.id, mode: "place" })}>
                     {x.kind === "due" ? <Icon name="due" size={11} /> : <Icon name="plan" size={11} />}
                     <span>{x.task!.title}</span>
                   </div>
@@ -397,6 +402,14 @@ export function CalendarView() {
                         <div class="blk task ghost" style={style} title="A later occurrence of a repeating task" onClick={() => openTask.set(t.id)}>
                           <span class="blk-t">{t.title}</span>
                           {h > 30 && <span class="blk-m">{fmtTime12(fmtHM(it.start))}, repeats</span>}
+                        </div>
+                      );
+                    }
+                    if (it.done) {
+                      return (
+                        <div class="blk task done" style={style} title="Done" onClick={() => openTask.set(t.id)}>
+                          <span class="blk-t">{t.title}</span>
+                          {h > 30 && <span class="blk-m">{fmtTime12(fmtHM(it.start))}, done</span>}
                         </div>
                       );
                     }
