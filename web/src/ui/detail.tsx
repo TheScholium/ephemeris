@@ -194,7 +194,7 @@ function SplitPanel({ t, subs }: { t: Task; subs: Task[] }) {
   const opts = { start: first, end: last, skipWeekends: !weekends };
   const dates = spreadDates(count, opts);
   const est = shareEstimate(t.estimate, count);
-  const shown = titles.length ? titles : Array.from({ length: count }, (_, i) => `Part ${i + 1}`);
+  const shown = titles.length ? titles : Array.from({ length: count }, (_, i) => `${t.title}: part ${i + 1}`);
   const lateEnd = !!(t.due && last > t.due);
 
   const undoFor = (ids: string[], before: Partial<Task>) => () =>
